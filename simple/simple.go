@@ -29,6 +29,10 @@ func (s *DB) Connection(dsn string, driver string) {
 	}
 }
 
+func (s *DB) Close() {
+	s.connection.Close()
+}
+
 func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]interface{}) (error) {
 	keys := make([]string, 0)
 	placeholders := make([]string, 0)
