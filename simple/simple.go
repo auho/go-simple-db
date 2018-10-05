@@ -33,14 +33,40 @@ func (s *DB) Close() {
 	s.connection.Close()
 }
 
-func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]interface{}) (error) {
-	keys := make([]string, 0)
-	placeholders := make([]string, 0)
-	firstRow := unsavedRows[0]
-	for k := range firstRow {
-		keys = append(keys, k)
-		placeholders = append(placeholders, "?")
+func (s *DB) InsertFromMap(tableName string, unsaveRow map[string]interface{}) (sql.Result, error) {
+	keys, query := s.insertPrepareQuery(tableName, unsaveRow)
+
+	tx, err := s.connection.Begin()
+	if err != nil {
+		return nil, err
 	}
+
+	stmt, err := tx.Prepare(query)
+	if err != nil {
+		return nil, err
+	}
+
+	defer stmt.Close()
+	valueArgs := make([]interface{}, 0, len(keys))
+	for _, v := range keys {
+		valueArgs = append(valueArgs, unsaveRow[v])
+	}
+
+	res, err := stmt.Exec(valueArgs...)
+	if err != nil {
+		return nil, err
+	}
+
+	err = tx.Commit()
+	if err != nil {
+		tx.Rollback()
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]interface{}) (error) {
 	//
 	//valueStrings := make([]string, 0, len(unsavedRows))
 	//valueArgs := make([]interface{}, 0, len(unsavedRows)*len(keys))
@@ -50,9 +76,7 @@ func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]i
 	//		valueArgs = append(valueArgs, row[v])
 	//	}
 	//}
-
-	query := "INSERT INTO %s (%s) VALUES (%s)"
-	query = fmt.Sprintf(query, tableName, strings.Join(keys, ","), strings.Join(placeholders, ","))
+	keys, query := s.insertPrepareQuery(tableName, unsavedRows[0])
 
 	tx, err := s.connection.Begin()
 	if err != nil {
@@ -79,6 +103,7 @@ func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]i
 
 	err = tx.Commit()
 	if err != nil {
+		tx.Rollback()
 		return err
 	}
 
@@ -195,4 +220,16 @@ func (s *DB) value2String(rawValue *reflect.Value) (str string, err error) {
 		err = fmt.Errorf("Unsupported struct type %v", vv.Type().Name())
 	}
 	return
+}
+
+func (s *DB) insertPrepareQuery(tableName string, row map[string]interface{}) ([]string, string) {
+	keys := make([]string, 0)
+	placeholders := make([]string, 0)
+	for k := range row {
+		keys = append(keys, k)
+		placeholders = append(placeholders, "?")
+	}
+
+	query := "INSERT INTO %s (%s) VALUES (%s)"
+	return keys, fmt.Sprintf(query, tableName, strings.Join(keys, ","), strings.Join(placeholders, ","))
 }
