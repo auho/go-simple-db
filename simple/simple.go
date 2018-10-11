@@ -33,8 +33,8 @@ func (s *DB) Close() {
 	s.connection.Close()
 }
 
-func (s *DB) InsertFromMap(tableName string, unsaveRow map[string]interface{}) (sql.Result, error) {
-	keys, query := s.insertPrepareQuery(tableName, unsaveRow)
+func (s *DB) InsertFromMap(tableName string, unSaveRow map[string]interface{}) (sql.Result, error) {
+	keys, query := s.insertPrepareQuery(tableName, unSaveRow)
 
 	tx, err := s.connection.Begin()
 	if err != nil {
@@ -49,11 +49,12 @@ func (s *DB) InsertFromMap(tableName string, unsaveRow map[string]interface{}) (
 	defer stmt.Close()
 	valueArgs := make([]interface{}, 0, len(keys))
 	for _, v := range keys {
-		valueArgs = append(valueArgs, unsaveRow[v])
+		valueArgs = append(valueArgs, unSaveRow[v])
 	}
 
 	res, err := stmt.Exec(valueArgs...)
 	if err != nil {
+		fmt.Println(query, valueArgs)
 		return nil, err
 	}
 
@@ -66,17 +67,17 @@ func (s *DB) InsertFromMap(tableName string, unsaveRow map[string]interface{}) (
 	return res, nil
 }
 
-func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]interface{}) (error) {
+func (s *DB) BulkInsertFromSliceMap(tableName string, unSavedRows []map[string]interface{}) (error) {
 	//
-	//valueStrings := make([]string, 0, len(unsavedRows))
-	//valueArgs := make([]interface{}, 0, len(unsavedRows)*len(keys))
-	//for _, row := range unsavedRows {
+	//valueStrings := make([]string, 0, len(unSavedRows))
+	//valueArgs := make([]interface{}, 0, len(unSavedRows)*len(keys))
+	//for _, row := range unSavedRows {
 	//	valueStrings = append(valueStrings, "("+strings.Join(placeholders, ",")+")")
 	//	for _, v := range keys {
 	//		valueArgs = append(valueArgs, row[v])
 	//	}
 	//}
-	keys, query := s.insertPrepareQuery(tableName, unsavedRows[0])
+	keys, query := s.insertPrepareQuery(tableName, unSavedRows[0])
 
 	tx, err := s.connection.Begin()
 	if err != nil {
@@ -89,7 +90,7 @@ func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]i
 	}
 
 	defer stmt.Close()
-	for _, row := range unsavedRows {
+	for _, row := range unSavedRows {
 		valueArgs := make([]interface{}, 0, len(keys))
 		for _, v := range keys {
 			valueArgs = append(valueArgs, row[v])
@@ -97,6 +98,7 @@ func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]i
 
 		_, err := stmt.Exec(valueArgs...)
 		if err != nil {
+			fmt.Println(query, valueArgs)
 			return err
 		}
 	}
@@ -108,6 +110,17 @@ func (s *DB) BulkInsertFromSliceMap(tableName string, unsavedRows []map[string]i
 	}
 
 	return nil
+}
+
+func (s *DB) QueryInterface(sql string) ([]map[string]interface{}, error) {
+	rows, err := s.connection.DB.Query(sql)
+	if err != nil {
+		return nil, err
+	}
+
+	defer rows.Close()
+
+	return s.rows2Interfaces(rows)
 }
 
 func (s *DB) QueryString(sql string) ([]map[string]string, error) {
@@ -196,14 +209,14 @@ func (s *DB) value2String(rawValue *reflect.Value) (str string, err error) {
 				str = "0"
 			}
 		default:
-			err = fmt.Errorf("Unsupported struct type %v", vv.Type().Name())
+			err = fmt.Errorf("Unsupported struct type %v ", vv.Type().Name())
 		}
 		// time type
 	case reflect.Struct:
 		if aa.ConvertibleTo(timeType) {
 			str = vv.Convert(timeType).Interface().(time.Time).Format(time.RFC3339Nano)
 		} else {
-			err = fmt.Errorf("Unsupported struct type %v", vv.Type().Name())
+			err = fmt.Errorf("Unsupported struct type %v ", vv.Type().Name())
 		}
 	case reflect.Bool:
 		str = strconv.FormatBool(vv.Bool())
@@ -217,9 +230,42 @@ func (s *DB) value2String(rawValue *reflect.Value) (str string, err error) {
 		   case reflect.Chan, reflect.Func, reflect.Interface:
 		*/
 	default:
-		err = fmt.Errorf("Unsupported struct type %v", vv.Type().Name())
+		err = fmt.Errorf("Unsupported struct type %v ", vv.Type().Name())
 	}
 	return
+}
+
+func (s *DB) row2mapInterface(rows *sql.Rows, fields []string) (resultsMap map[string]interface{}, err error) {
+	resultsMap = make(map[string]interface{}, len(fields))
+	scanResultContainers := make([]interface{}, len(fields))
+	for i := 0; i < len(fields); i++ {
+		var scanResultContainer interface{}
+		scanResultContainers[i] = &scanResultContainer
+	}
+	if err := rows.Scan(scanResultContainers...); err != nil {
+		return nil, err
+	}
+
+	for ii, key := range fields {
+		resultsMap[key] = reflect.Indirect(reflect.ValueOf(scanResultContainers[ii])).Interface()
+	}
+	return
+}
+
+func (s *DB) rows2Interfaces(rows *sql.Rows) (resultsSlice []map[string]interface{}, err error) {
+	fields, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		result, err := s.row2mapInterface(rows, fields)
+		if err != nil {
+			return nil, err
+		}
+		resultsSlice = append(resultsSlice, result)
+	}
+
+	return resultsSlice, nil
 }
 
 func (s *DB) insertPrepareQuery(tableName string, row map[string]interface{}) ([]string, string) {
