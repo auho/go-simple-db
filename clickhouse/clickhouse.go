@@ -1,8 +1,8 @@
 package clickhouse
 
 import (
-	_ "github.com/kshvakov/clickhouse"
-	"github.com/auho/go-simple-db/simple"
+	_ "github.com/ClickHouse/clickhouse-go"
+	"go-simple-db/simple"
 )
 
 func NewEngine(driver string) *simple.DB {

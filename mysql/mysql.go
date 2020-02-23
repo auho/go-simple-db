@@ -2,7 +2,7 @@ package mysql
 
 import (
 	_ "github.com/go-sql-driver/mysql"
-	"github.com/auho/go-simple-db/simple"
+	"go-simple-db/simple"
 )
 
 func NewEngine(driver string) *simple.DB {
