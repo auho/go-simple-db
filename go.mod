@@ -1,4 +1,4 @@
-module go-simple-db
+module github.com/auho/go-simple-db
 
 go 1.12
 
