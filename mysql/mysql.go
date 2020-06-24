@@ -5,9 +5,9 @@ import (
 	"github.com/auho/go-simple-db/simple"
 )
 
-func NewEngine(driver string) *simple.DB {
+func NewEngine(dsn string) *simple.DB {
 	s := simple.NewDB()
-	s.Connection("mysql", driver)
+	s.Connection(simple.MYSQL, dsn)
 
 	return s
 }

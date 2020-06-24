@@ -13,6 +13,9 @@ import (
 var timeDefault time.Time
 var timeType = reflect.TypeOf(timeDefault)
 
+const MYSQL = "mysql"
+const CLICKHOUSE = "clickhouse"
+
 type DB struct {
 	connection *dbr.Connection
 }
@@ -21,9 +24,9 @@ func NewDB() *DB {
 	return &DB{}
 }
 
-func (s *DB) Connection(dsn string, driver string) {
+func (s *DB) Connection(driver string, dsn string) {
 	var err error
-	s.connection, err = dbr.Open(dsn, driver, nil)
+	s.connection, err = dbr.Open(driver, dsn, nil)
 	if err != nil {
 		panic(err)
 	}
@@ -67,7 +70,7 @@ func (s *DB) InsertFromMap(tableName string, unSaveRow map[string]interface{}) (
 	return res, nil
 }
 
-func (s *DB) BulkInsertFromSliceMap(tableName string, unSavedRows []map[string]interface{}) (error) {
+func (s *DB) BulkInsertFromSliceMap(tableName string, unSavedRows []map[string]interface{}) error {
 	//
 	//valueStrings := make([]string, 0, len(unSavedRows))
 	//valueArgs := make([]interface{}, 0, len(unSavedRows)*len(keys))
