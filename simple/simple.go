@@ -1,158 +1,44 @@
 package simple
 
 import (
-	"github.com/mailru/dbr"
 	"database/sql"
+	"fmt"
 	"reflect"
 	"strconv"
-	"fmt"
-	"time"
 	"strings"
+	"time"
 )
+
+type DB interface {
+	Connection(driver string, dsn string)
+	Close()
+	InsertFromSlice(tableName string, fields []string, unSavedRow []interface{}) (sql.Result, error)
+	InsertFromMap(tableName string, unSavedRow map[string]interface{}) (sql.Result, error)
+	BulkInsertFromSliceSlice(tableName string, fields []string, unSavedRow [][]interface{}) (sql.Result, error)
+	BulkInsertFromSliceMap(tableName string, unSavedRows []map[string]interface{}) (sql.Result, error)
+	UpdateFromMapById(tableName string, keyName string, unSavedRow map[string]interface{}) error
+	BulkUpdateFromSliceMapById(tableName string, keyName string, unSavedRows []map[string]interface{}) error
+	Exec(query string, args ...interface{}) (sql.Result, error)
+	QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error)
+	QueryInterface(query string, args ...interface{}) ([]map[string]interface{}, error)
+	QueryStringRow(query string, args ...interface{}) (map[string]string, error)
+	QueryString(query string, args ...interface{}) ([]map[string]string, error)
+}
 
 var timeDefault time.Time
 var timeType = reflect.TypeOf(timeDefault)
 
-const MYSQL = "mysql"
-const CLICKHOUSE = "clickhouse"
-
-type DB struct {
-	connection *dbr.Connection
+type DbDriver struct {
+	Db *sql.DB
 }
 
-func NewDB() *DB {
-	return &DB{}
-}
-
-func (s *DB) Connection(driver string, dsn string) {
-	var err error
-	s.connection, err = dbr.Open(driver, dsn, nil)
-	if err != nil {
-		panic(err)
-	}
-}
-
-func (s *DB) Close() {
-	s.connection.Close()
-}
-
-func (s *DB) InsertFromMap(tableName string, unSaveRow map[string]interface{}) (sql.Result, error) {
-	keys, query := s.insertPrepareQuery(tableName, unSaveRow)
-
-	tx, err := s.connection.Begin()
-	if err != nil {
-		return nil, err
-	}
-
-	stmt, err := tx.Prepare(query)
-	if err != nil {
-		return nil, err
-	}
-
-	defer stmt.Close()
-	valueArgs := make([]interface{}, 0, len(keys))
-	for _, v := range keys {
-		valueArgs = append(valueArgs, unSaveRow[v])
-	}
-
-	res, err := stmt.Exec(valueArgs...)
-	if err != nil {
-		fmt.Println(query, valueArgs)
-		return nil, err
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		tx.Rollback()
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (s *DB) BulkInsertFromSliceMap(tableName string, unSavedRows []map[string]interface{}) error {
-	//
-	//valueStrings := make([]string, 0, len(unSavedRows))
-	//valueArgs := make([]interface{}, 0, len(unSavedRows)*len(keys))
-	//for _, row := range unSavedRows {
-	//	valueStrings = append(valueStrings, "("+strings.Join(placeholders, ",")+")")
-	//	for _, v := range keys {
-	//		valueArgs = append(valueArgs, row[v])
-	//	}
-	//}
-	keys, query := s.insertPrepareQuery(tableName, unSavedRows[0])
-
-	tx, err := s.connection.Begin()
-	if err != nil {
-		return err
-	}
-
-	stmt, err := tx.Prepare(query)
-	if err != nil {
-		return err
-	}
-
-	defer stmt.Close()
-	for _, row := range unSavedRows {
-		valueArgs := make([]interface{}, 0, len(keys))
-		for _, v := range keys {
-			valueArgs = append(valueArgs, row[v])
-		}
-
-		_, err := stmt.Exec(valueArgs...)
-		if err != nil {
-			fmt.Println(query, valueArgs)
-			return err
-		}
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		tx.Rollback()
-		return err
-	}
-
-	return nil
-}
-
-func (s *DB) QueryInterface(sql string) ([]map[string]interface{}, error) {
-	rows, err := s.connection.DB.Query(sql)
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	return s.rows2Interfaces(rows)
-}
-
-func (s *DB) QueryString(sql string) ([]map[string]string, error) {
-	rows, err := s.connection.DB.Query(sql)
-	if err != nil {
-		return nil, err
-	}
-
-	defer rows.Close()
-
-	return s.rows2Strings(rows)
-}
-
-func (s *DB) QueryStringOne(sql string) (map[string]string, error) {
-	rows, err := s.QueryString(sql)
-	if err != nil {
-		return nil, err
-	}
-
-	return rows[0], err
-}
-
-func (s *DB) rows2Strings(rows *sql.Rows) (resultsSlice []map[string]string, err error) {
+func (dd *DbDriver) Rows2Strings(rows *sql.Rows) (resultsSlice []map[string]string, err error) {
 	fields, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		result, err := s.row2mapStr(rows, fields)
+		result, err := dd.row2mapString(rows, fields)
 		if err != nil {
 			return nil, err
 		}
@@ -162,7 +48,7 @@ func (s *DB) rows2Strings(rows *sql.Rows) (resultsSlice []map[string]string, err
 	return resultsSlice, nil
 }
 
-func (s *DB) row2mapStr(rows *sql.Rows, fields []string) (resultsMap map[string]string, err error) {
+func (dd *DbDriver) row2mapString(rows *sql.Rows, fields []string) (resultsMap map[string]string, err error) {
 	result := make(map[string]string)
 	scanResultContainers := make([]interface{}, len(fields))
 	for i := 0; i < len(fields); i++ {
@@ -181,7 +67,7 @@ func (s *DB) row2mapStr(rows *sql.Rows, fields []string) (resultsMap map[string]
 			continue
 		}
 
-		if data, err := s.value2String(&rawValue); err == nil {
+		if data, err := dd.value2String(&rawValue); err == nil {
 			result[key] = data
 		} else {
 			return nil, err
@@ -191,7 +77,7 @@ func (s *DB) row2mapStr(rows *sql.Rows, fields []string) (resultsMap map[string]
 	return result, nil
 }
 
-func (s *DB) value2String(rawValue *reflect.Value) (str string, err error) {
+func (dd *DbDriver) value2String(rawValue *reflect.Value) (str string, err error) {
 	aa := reflect.TypeOf((*rawValue).Interface())
 	vv := reflect.ValueOf((*rawValue).Interface())
 	switch aa.Kind() {
@@ -235,10 +121,27 @@ func (s *DB) value2String(rawValue *reflect.Value) (str string, err error) {
 	default:
 		err = fmt.Errorf("Unsupported struct type %v ", vv.Type().Name())
 	}
+
 	return
 }
 
-func (s *DB) row2mapInterface(rows *sql.Rows, fields []string) (resultsMap map[string]interface{}, err error) {
+func (dd *DbDriver) Rows2Interfaces(rows *sql.Rows) (resultsSlice []map[string]interface{}, err error) {
+	fields, err := rows.Columns()
+	if err != nil {
+		return nil, err
+	}
+	for rows.Next() {
+		result, err := dd.row2mapInterface(rows, fields)
+		if err != nil {
+			return nil, err
+		}
+		resultsSlice = append(resultsSlice, result)
+	}
+
+	return resultsSlice, nil
+}
+
+func (dd *DbDriver) row2mapInterface(rows *sql.Rows, fields []string) (resultsMap map[string]interface{}, err error) {
 	resultsMap = make(map[string]interface{}, len(fields))
 	scanResultContainers := make([]interface{}, len(fields))
 	for i := 0; i < len(fields); i++ {
@@ -252,33 +155,47 @@ func (s *DB) row2mapInterface(rows *sql.Rows, fields []string) (resultsMap map[s
 	for ii, key := range fields {
 		resultsMap[key] = reflect.Indirect(reflect.ValueOf(scanResultContainers[ii])).Interface()
 	}
+
 	return
 }
 
-func (s *DB) rows2Interfaces(rows *sql.Rows) (resultsSlice []map[string]interface{}, err error) {
-	fields, err := rows.Columns()
-	if err != nil {
-		return nil, err
-	}
-	for rows.Next() {
-		result, err := s.row2mapInterface(rows, fields)
-		if err != nil {
-			return nil, err
-		}
-		resultsSlice = append(resultsSlice, result)
-	}
-
-	return resultsSlice, nil
-}
-
-func (s *DB) insertPrepareQuery(tableName string, row map[string]interface{}) ([]string, string) {
-	keys := make([]string, 0)
-	placeholders := make([]string, 0)
-	for k := range row {
-		keys = append(keys, k)
-		placeholders = append(placeholders, "?")
+func (dd *DbDriver) GenerateInsertPrepareQuery(tableName string, fields []string) string {
+	placeholders := make([]string, 0, len(fields))
+	for k, _ := range placeholders {
+		placeholders[k] = "?"
 	}
 
 	query := "INSERT INTO %s (%s) VALUES (%s)"
-	return keys, fmt.Sprintf(query, tableName, strings.Join(keys, ","), strings.Join(placeholders, ","))
+	return fmt.Sprintf(query, tableName, strings.Join(fields, ","), strings.Join(placeholders, ","))
+}
+
+func (dd *DbDriver) GenerateBulkInsertPrepareQuery(tableName string, fields []string, rowsAmount int) string {
+	placeholders := make([]string, 0, len(fields))
+	for k, _ := range placeholders {
+		placeholders[k] = "?"
+	}
+
+	valueArg := "(" + strings.Join(placeholders, ",") + ")"
+
+	valuesArgs := make([]string, 0, rowsAmount)
+	for i := 0; i < rowsAmount; i++ {
+		valuesArgs = append(valuesArgs, valueArg)
+	}
+
+	query := "INSERT INTO %s (%s) VALUES %s"
+	return fmt.Sprintf(query, tableName, strings.Join(fields, ","), strings.Join(valuesArgs, ","))
+}
+
+func (dd *DbDriver) GenerateUpdatePrepareQuery(tableName string, keyName string, unSavedRow map[string]interface{}) (string, []string) {
+	setPlaceholders := make([]string, 0, len(unSavedRow))
+	fields := make([]string, len(unSavedRow)-1)
+
+	delete(unSavedRow, keyName)
+
+	for k := range unSavedRow {
+		setPlaceholders = append(setPlaceholders, k+" = ?")
+		fields = append(fields, k)
+	}
+
+	return fmt.Sprintf("UPDATE FROM `%s` SET %s WHERE `%s` = ?", tableName, strings.Join(setPlaceholders, ", "), keyName), fields
 }
