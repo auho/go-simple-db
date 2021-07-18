@@ -2,28 +2,45 @@ package mysql
 
 import (
 	"database/sql"
+	"errors"
+	"fmt"
 
 	"github.com/auho/go-simple-db/simple"
 	_ "github.com/go-sql-driver/mysql"
 )
 
-func NewDriver(dsn string) simple.DB {
+func NewMysql(dsn string) *Mysql {
 	m := &Mysql{}
-	m.Connection("mysql", dsn)
+	m.Dsn = dsn
 
 	return m
+}
+
+func NewDriver(dsn string) (simple.DB, error) {
+	m := NewMysql(dsn)
+	err := m.Connection()
+	if err != nil {
+		return nil, err
+	}
+
+	return m, nil
 }
 
 type Mysql struct {
 	simple.DbDriver
 }
 
-func (m *Mysql) Connection(driver string, dsn string) {
+func (m *Mysql) Connection() error {
 	var err error
-	m.Db, err = sql.Open(driver, dsn)
+	m.Db, err = sql.Open("mysql", m.Dsn)
 	if err != nil {
-		panic(err)
+		return err
 	}
+
+	return nil
+}
+func (m *Mysql) Ping() error {
+	return m.Db.Ping()
 }
 
 func (m *Mysql) Close() {
@@ -50,7 +67,7 @@ func (m *Mysql) InsertFromMap(tableName string, unSavedRow map[string]interface{
 func (m *Mysql) BulkInsertFromSliceSlice(tableName string, fields []string, unSavedRows [][]interface{}) (sql.Result, error) {
 	valuesArgs := make([]interface{}, 0, len(unSavedRows)*len(fields))
 	for _, row := range unSavedRows {
-		valuesArgs = append(valuesArgs, row)
+		valuesArgs = append(valuesArgs, row...)
 	}
 
 	query := m.GenerateBulkInsertPrepareQuery(tableName, fields, len(unSavedRows))
@@ -77,6 +94,10 @@ func (m *Mysql) BulkInsertFromSliceMap(tableName string, unSavedRows []map[strin
 }
 
 func (m *Mysql) UpdateFromMapById(tableName string, keyName string, unSavedRow map[string]interface{}) error {
+	if len(unSavedRow) <= 1 {
+		return errors.New("row is error")
+	}
+
 	unSavedRows := make([]map[string]interface{}, 0, 1)
 	unSavedRows = append(unSavedRows, unSavedRow)
 
@@ -84,7 +105,11 @@ func (m *Mysql) UpdateFromMapById(tableName string, keyName string, unSavedRow m
 }
 
 func (m *Mysql) BulkUpdateFromSliceMapById(tableName string, keyName string, unSavedRows []map[string]interface{}) error {
-	query, fields := m.GenerateUpdatePrepareQuery(tableName, keyName, unSavedRows[0])
+	query, fields, err := m.GenerateUpdatePrepareQuery(tableName, keyName, unSavedRows[0])
+	if err != nil {
+		return err
+	}
+
 	stmt, err := m.Db.Prepare(query)
 	if err != nil {
 		return err
@@ -100,7 +125,7 @@ func (m *Mysql) BulkUpdateFromSliceMapById(tableName string, keyName string, unS
 			setArgs = append(setArgs, row[field])
 		}
 
-		setArgs = append(setArgs, unSavedRows)
+		setArgs = append(setArgs, row[keyName])
 
 		_, err := stmt.Exec(setArgs...)
 		if err != nil {
@@ -113,6 +138,13 @@ func (m *Mysql) BulkUpdateFromSliceMapById(tableName string, keyName string, unS
 
 func (m *Mysql) Exec(query string, args ...interface{}) (sql.Result, error) {
 	return m.Db.Exec(query, args...)
+}
+
+func (m *Mysql) Truncate(tableName string) error {
+	query := fmt.Sprintf("TRUNCATE TABLE `%s`", tableName)
+	_, err := m.Exec(query)
+
+	return err
 }
 
 func (m *Mysql) QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error) {

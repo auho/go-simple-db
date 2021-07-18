@@ -2,6 +2,7 @@ package simple
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -10,7 +11,8 @@ import (
 )
 
 type DB interface {
-	Connection(driver string, dsn string)
+	Connection() error
+	Ping() error
 	Close()
 	InsertFromSlice(tableName string, fields []string, unSavedRow []interface{}) (sql.Result, error)
 	InsertFromMap(tableName string, unSavedRow map[string]interface{}) (sql.Result, error)
@@ -19,6 +21,7 @@ type DB interface {
 	UpdateFromMapById(tableName string, keyName string, unSavedRow map[string]interface{}) error
 	BulkUpdateFromSliceMapById(tableName string, keyName string, unSavedRows []map[string]interface{}) error
 	Exec(query string, args ...interface{}) (sql.Result, error)
+	Truncate(tableName string) error
 	QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error)
 	QueryInterface(query string, args ...interface{}) ([]map[string]interface{}, error)
 	QueryStringRow(query string, args ...interface{}) (map[string]string, error)
@@ -29,7 +32,8 @@ var timeDefault time.Time
 var timeType = reflect.TypeOf(timeDefault)
 
 type DbDriver struct {
-	Db *sql.DB
+	Dsn string
+	Db  *sql.DB
 }
 
 func (dd *DbDriver) Rows2Strings(rows *sql.Rows) (resultsSlice []map[string]string, err error) {
@@ -160,17 +164,17 @@ func (dd *DbDriver) row2mapInterface(rows *sql.Rows, fields []string) (resultsMa
 }
 
 func (dd *DbDriver) GenerateInsertPrepareQuery(tableName string, fields []string) string {
-	placeholders := make([]string, 0, len(fields))
-	for k, _ := range placeholders {
+	placeholders := make([]string, len(fields), len(fields))
+	for k := range fields {
 		placeholders[k] = "?"
 	}
 
-	query := "INSERT INTO %s (%s) VALUES (%s)"
-	return fmt.Sprintf(query, tableName, strings.Join(fields, ","), strings.Join(placeholders, ","))
+	query := "INSERT INTO %s (`%s`) VALUES (%s)"
+	return fmt.Sprintf(query, tableName, strings.Join(fields, "`, `"), strings.Join(placeholders, ","))
 }
 
 func (dd *DbDriver) GenerateBulkInsertPrepareQuery(tableName string, fields []string, rowsAmount int) string {
-	placeholders := make([]string, 0, len(fields))
+	placeholders := make([]string, len(fields), len(fields))
 	for k, _ := range placeholders {
 		placeholders[k] = "?"
 	}
@@ -182,20 +186,30 @@ func (dd *DbDriver) GenerateBulkInsertPrepareQuery(tableName string, fields []st
 		valuesArgs = append(valuesArgs, valueArg)
 	}
 
-	query := "INSERT INTO %s (%s) VALUES %s"
-	return fmt.Sprintf(query, tableName, strings.Join(fields, ","), strings.Join(valuesArgs, ","))
+	query := "INSERT INTO %s (`%s`) VALUES %s"
+	return fmt.Sprintf(query, tableName, strings.Join(fields, "`, `"), strings.Join(valuesArgs, ","))
 }
 
-func (dd *DbDriver) GenerateUpdatePrepareQuery(tableName string, keyName string, unSavedRow map[string]interface{}) (string, []string) {
-	setPlaceholders := make([]string, 0, len(unSavedRow))
-	fields := make([]string, len(unSavedRow)-1)
+func (dd *DbDriver) GenerateUpdatePrepareQuery(tableName string, keyName string, unSavedRow map[string]interface{}) (query string, fields []string, err error) {
+	if len(unSavedRow) <= 1 {
+		return "", nil, errors.New("row is error")
+	}
 
-	delete(unSavedRow, keyName)
+	if _, ok := unSavedRow[keyName]; !ok {
+		return "", nil, errors.New("row has no key name")
+	}
+
+	setPlaceholders := make([]string, 0, len(unSavedRow))
+	fields = make([]string, 0, len(unSavedRow)-1)
 
 	for k := range unSavedRow {
-		setPlaceholders = append(setPlaceholders, k+" = ?")
+		if k == keyName {
+			continue
+		}
+
+		setPlaceholders = append(setPlaceholders, "`"+k+"` = ?")
 		fields = append(fields, k)
 	}
 
-	return fmt.Sprintf("UPDATE FROM `%s` SET %s WHERE `%s` = ?", tableName, strings.Join(setPlaceholders, ", "), keyName), fields
+	return fmt.Sprintf("UPDATE `%s` SET %s WHERE `%s` = ?", tableName, strings.Join(setPlaceholders, ", "), keyName), fields, nil
 }
