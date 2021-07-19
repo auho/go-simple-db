@@ -147,6 +147,13 @@ func (m *Mysql) Truncate(tableName string) error {
 	return err
 }
 
+func (m *Mysql) Drop(tableName string) error {
+	query := fmt.Sprintf("DROP TABLE IF EXISTS `%s`", tableName)
+	_, err := m.Exec(query)
+
+	return err
+}
+
 func (m *Mysql) QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error) {
 	rows, err := m.QueryInterface(query, args...)
 	if err != nil {
@@ -197,4 +204,34 @@ func (m *Mysql) QueryString(query string, args ...interface{}) ([]map[string]str
 	}()
 
 	return m.Rows2Strings(rows)
+}
+
+func (m *Mysql) QueryFieldSlice(field string, query string, args ...interface{}) ([]interface{}, error) {
+	rows, err := m.QueryInterface(query, args...)
+	if err != nil {
+		return nil, err
+	}
+
+	if rows == nil {
+		return nil, nil
+	}
+
+	values := make([]interface{}, len(rows), len(rows))
+	for k := range rows {
+		values[k] = rows[k][field]
+	}
+
+	return values, nil
+}
+
+func (m *Mysql) QueryField(field string, query string, args ...interface{}) (interface{}, error) {
+	row, err := m.QueryInterfaceRow(query, args...)
+	if err != nil {
+		return nil, err
+	}
+	if row == nil {
+		return nil, nil
+	}
+
+	return row[field], nil
 }
