@@ -22,10 +22,13 @@ type DB interface {
 	BulkUpdateFromSliceMapById(tableName string, keyName string, unSavedRows []map[string]interface{}) error
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Truncate(tableName string) error
+	Drop(tableName string) error
 	QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error)
 	QueryInterface(query string, args ...interface{}) ([]map[string]interface{}, error)
 	QueryStringRow(query string, args ...interface{}) (map[string]string, error)
 	QueryString(query string, args ...interface{}) ([]map[string]string, error)
+	QueryField(field string, query string, args ...interface{}) (interface{}, error)
+	QueryFieldSlice(field string, query string, args ...interface{}) ([]interface{}, error)
 }
 
 var timeDefault time.Time
