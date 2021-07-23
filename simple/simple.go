@@ -23,7 +23,7 @@ type Driver interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Truncate(tableName string) error
 	Drop(tableName string) error
-	GetTableColumn(tableName string) ([]interface{}, error)
+	GetTableColumns(tableName string) ([]interface{}, error)
 	QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error)
 	QueryInterface(query string, args ...interface{}) ([]map[string]interface{}, error)
 	QueryStringRow(query string, args ...interface{}) (map[string]string, error)

@@ -154,7 +154,7 @@ func (m *Mysql) Drop(tableName string) error {
 	return err
 }
 
-func (m *Mysql) GetTableColumn(tableName string) ([]interface{}, error) {
+func (m *Mysql) GetTableColumns(tableName string) ([]interface{}, error) {
 	query := "SELECT `COLUMN_NAME` " +
 		"FROM `information_schema`.`COLUMNS` " +
 		"WHERE `TABLE_NAME` = ?"
