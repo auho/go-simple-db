@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-type DB interface {
+type Driver interface {
 	Connection() error
 	Ping() error
 	Close()
@@ -23,29 +23,30 @@ type DB interface {
 	Exec(query string, args ...interface{}) (sql.Result, error)
 	Truncate(tableName string) error
 	Drop(tableName string) error
+	GetTableColumn(tableName string) ([]interface{}, error)
 	QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error)
 	QueryInterface(query string, args ...interface{}) ([]map[string]interface{}, error)
 	QueryStringRow(query string, args ...interface{}) (map[string]string, error)
 	QueryString(query string, args ...interface{}) ([]map[string]string, error)
-	QueryField(field string, query string, args ...interface{}) (interface{}, error)
-	QueryFieldSlice(field string, query string, args ...interface{}) ([]interface{}, error)
+	QueryFieldInterface(field string, query string, args ...interface{}) (interface{}, error)
+	QueryFieldInterfaceSlice(field string, query string, args ...interface{}) ([]interface{}, error)
 }
 
 var timeDefault time.Time
 var timeType = reflect.TypeOf(timeDefault)
 
-type DbDriver struct {
+type Engine struct {
 	Dsn string
-	Db  *sql.DB
+	DB  *sql.DB
 }
 
-func (dd *DbDriver) Rows2Strings(rows *sql.Rows) (resultsSlice []map[string]string, err error) {
+func (e *Engine) Rows2Strings(rows *sql.Rows) (resultsSlice []map[string]string, err error) {
 	fields, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		result, err := dd.row2mapString(rows, fields)
+		result, err := e.row2mapString(rows, fields)
 		if err != nil {
 			return nil, err
 		}
@@ -55,7 +56,7 @@ func (dd *DbDriver) Rows2Strings(rows *sql.Rows) (resultsSlice []map[string]stri
 	return resultsSlice, nil
 }
 
-func (dd *DbDriver) row2mapString(rows *sql.Rows, fields []string) (resultsMap map[string]string, err error) {
+func (e *Engine) row2mapString(rows *sql.Rows, fields []string) (resultsMap map[string]string, err error) {
 	result := make(map[string]string)
 	scanResultContainers := make([]interface{}, len(fields))
 	for i := 0; i < len(fields); i++ {
@@ -74,7 +75,7 @@ func (dd *DbDriver) row2mapString(rows *sql.Rows, fields []string) (resultsMap m
 			continue
 		}
 
-		if data, err := dd.value2String(&rawValue); err == nil {
+		if data, err := e.value2String(&rawValue); err == nil {
 			result[key] = data
 		} else {
 			return nil, err
@@ -84,7 +85,7 @@ func (dd *DbDriver) row2mapString(rows *sql.Rows, fields []string) (resultsMap m
 	return result, nil
 }
 
-func (dd *DbDriver) value2String(rawValue *reflect.Value) (str string, err error) {
+func (e *Engine) value2String(rawValue *reflect.Value) (str string, err error) {
 	aa := reflect.TypeOf((*rawValue).Interface())
 	vv := reflect.ValueOf((*rawValue).Interface())
 	switch aa.Kind() {
@@ -132,13 +133,13 @@ func (dd *DbDriver) value2String(rawValue *reflect.Value) (str string, err error
 	return
 }
 
-func (dd *DbDriver) Rows2Interfaces(rows *sql.Rows) (resultsSlice []map[string]interface{}, err error) {
+func (e *Engine) Rows2Interfaces(rows *sql.Rows) (resultsSlice []map[string]interface{}, err error) {
 	fields, err := rows.Columns()
 	if err != nil {
 		return nil, err
 	}
 	for rows.Next() {
-		result, err := dd.row2mapInterface(rows, fields)
+		result, err := e.row2mapInterface(rows, fields)
 		if err != nil {
 			return nil, err
 		}
@@ -148,7 +149,7 @@ func (dd *DbDriver) Rows2Interfaces(rows *sql.Rows) (resultsSlice []map[string]i
 	return resultsSlice, nil
 }
 
-func (dd *DbDriver) row2mapInterface(rows *sql.Rows, fields []string) (resultsMap map[string]interface{}, err error) {
+func (e *Engine) row2mapInterface(rows *sql.Rows, fields []string) (resultsMap map[string]interface{}, err error) {
 	resultsMap = make(map[string]interface{}, len(fields))
 	scanResultContainers := make([]interface{}, len(fields))
 	for i := 0; i < len(fields); i++ {
@@ -166,7 +167,7 @@ func (dd *DbDriver) row2mapInterface(rows *sql.Rows, fields []string) (resultsMa
 	return
 }
 
-func (dd *DbDriver) GenerateInsertPrepareQuery(tableName string, fields []string) string {
+func (e *Engine) GenerateInsertPrepareQuery(tableName string, fields []string) string {
 	placeholders := make([]string, len(fields), len(fields))
 	for k := range fields {
 		placeholders[k] = "?"
@@ -176,7 +177,7 @@ func (dd *DbDriver) GenerateInsertPrepareQuery(tableName string, fields []string
 	return fmt.Sprintf(query, tableName, strings.Join(fields, "`, `"), strings.Join(placeholders, ","))
 }
 
-func (dd *DbDriver) GenerateBulkInsertPrepareQuery(tableName string, fields []string, rowsAmount int) string {
+func (e *Engine) GenerateBulkInsertPrepareQuery(tableName string, fields []string, rowsAmount int) string {
 	placeholders := make([]string, len(fields), len(fields))
 	for k, _ := range placeholders {
 		placeholders[k] = "?"
@@ -193,7 +194,7 @@ func (dd *DbDriver) GenerateBulkInsertPrepareQuery(tableName string, fields []st
 	return fmt.Sprintf(query, tableName, strings.Join(fields, "`, `"), strings.Join(valuesArgs, ","))
 }
 
-func (dd *DbDriver) GenerateUpdatePrepareQuery(tableName string, keyName string, unSavedRow map[string]interface{}) (query string, fields []string, err error) {
+func (e *Engine) GenerateUpdatePrepareQuery(tableName string, keyName string, unSavedRow map[string]interface{}) (query string, fields []string, err error) {
 	if len(unSavedRow) <= 1 {
 		return "", nil, errors.New("row is error")
 	}

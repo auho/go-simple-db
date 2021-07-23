@@ -282,7 +282,7 @@ func TestMysql_QueryFieldSlice(t *testing.T) {
 	minId := rand.Int63n(lastId - int64(rowsNum))
 	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `id` > ? LIMIT %d", tableName, rowsNum)
 
-	values, err := db.QueryFieldSlice("value", query, minId)
+	values, err := db.QueryFieldInterfaceSlice("value", query, minId)
 	if err != nil {
 		t.Error(err)
 	}
@@ -299,7 +299,7 @@ func TestMysql_QueryFieldSlice(t *testing.T) {
 func TestMysql_QueryField(t *testing.T) {
 	minId := rand.Int63n(lastId)
 	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `id` = ?", tableName)
-	value, err := db.QueryField("value", query, minId)
+	value, err := db.QueryFieldInterface("value", query, minId)
 	if err != nil {
 		t.Error(err)
 	}
@@ -361,7 +361,7 @@ func TestMysql_BulkUpdateFromSliceMapById(t *testing.T) {
 	}
 
 	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `name` = ?", tableName)
-	rows, err := db.QueryFieldSlice("value", query, name)
+	rows, err := db.QueryFieldInterfaceSlice("value", query, name)
 	if err != nil {
 		t.Error(err)
 	}

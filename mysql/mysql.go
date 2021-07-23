@@ -16,7 +16,7 @@ func NewMysql(dsn string) *Mysql {
 	return m
 }
 
-func NewDriver(dsn string) (simple.DB, error) {
+func NewDriver(dsn string) (simple.Driver, error) {
 	m := NewMysql(dsn)
 	err := m.Connection()
 	if err != nil {
@@ -27,12 +27,12 @@ func NewDriver(dsn string) (simple.DB, error) {
 }
 
 type Mysql struct {
-	simple.DbDriver
+	simple.Engine
 }
 
 func (m *Mysql) Connection() error {
 	var err error
-	m.Db, err = sql.Open("mysql", m.Dsn)
+	m.DB, err = sql.Open("mysql", m.Dsn)
 	if err != nil {
 		return err
 	}
@@ -40,17 +40,17 @@ func (m *Mysql) Connection() error {
 	return nil
 }
 func (m *Mysql) Ping() error {
-	return m.Db.Ping()
+	return m.DB.Ping()
 }
 
 func (m *Mysql) Close() {
-	_ = m.Db.Close()
+	_ = m.DB.Close()
 }
 
 func (m *Mysql) InsertFromSlice(tableName string, fields []string, unSavedRow []interface{}) (sql.Result, error) {
 	query := m.GenerateInsertPrepareQuery(tableName, fields)
 
-	return m.Db.Exec(query, unSavedRow...)
+	return m.DB.Exec(query, unSavedRow...)
 }
 
 func (m *Mysql) InsertFromMap(tableName string, unSavedRow map[string]interface{}) (sql.Result, error) {
@@ -72,7 +72,7 @@ func (m *Mysql) BulkInsertFromSliceSlice(tableName string, fields []string, unSa
 
 	query := m.GenerateBulkInsertPrepareQuery(tableName, fields, len(unSavedRows))
 
-	return m.Db.Exec(query, valuesArgs...)
+	return m.DB.Exec(query, valuesArgs...)
 }
 
 func (m *Mysql) BulkInsertFromSliceMap(tableName string, unSavedRows []map[string]interface{}) (sql.Result, error) {
@@ -90,7 +90,7 @@ func (m *Mysql) BulkInsertFromSliceMap(tableName string, unSavedRows []map[strin
 
 	query := m.GenerateBulkInsertPrepareQuery(tableName, fields, len(unSavedRows))
 
-	return m.Db.Exec(query, valuesArgs...)
+	return m.DB.Exec(query, valuesArgs...)
 }
 
 func (m *Mysql) UpdateFromMapById(tableName string, keyName string, unSavedRow map[string]interface{}) error {
@@ -110,7 +110,7 @@ func (m *Mysql) BulkUpdateFromSliceMapById(tableName string, keyName string, unS
 		return err
 	}
 
-	stmt, err := m.Db.Prepare(query)
+	stmt, err := m.DB.Prepare(query)
 	if err != nil {
 		return err
 	}
@@ -137,7 +137,7 @@ func (m *Mysql) BulkUpdateFromSliceMapById(tableName string, keyName string, unS
 }
 
 func (m *Mysql) Exec(query string, args ...interface{}) (sql.Result, error) {
-	return m.Db.Exec(query, args...)
+	return m.DB.Exec(query, args...)
 }
 
 func (m *Mysql) Truncate(tableName string) error {
@@ -154,6 +154,14 @@ func (m *Mysql) Drop(tableName string) error {
 	return err
 }
 
+func (m *Mysql) GetTableColumn(tableName string) ([]interface{}, error) {
+	query := "SELECT `COLUMN_NAME` " +
+		"FROM `information_schema`.`COLUMNS` " +
+		"WHERE `TABLE_NAME` = ?"
+
+	return m.QueryFieldInterfaceSlice(query, tableName)
+}
+
 func (m *Mysql) QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error) {
 	rows, err := m.QueryInterface(query, args...)
 	if err != nil {
@@ -168,7 +176,7 @@ func (m *Mysql) QueryInterfaceRow(query string, args ...interface{}) (map[string
 }
 
 func (m *Mysql) QueryInterface(query string, args ...interface{}) ([]map[string]interface{}, error) {
-	rows, err := m.Db.Query(query, args...)
+	rows, err := m.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -194,7 +202,7 @@ func (m *Mysql) QueryStringRow(query string, args ...interface{}) (map[string]st
 }
 
 func (m *Mysql) QueryString(query string, args ...interface{}) ([]map[string]string, error) {
-	rows, err := m.Db.Query(query, args...)
+	rows, err := m.DB.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -206,7 +214,7 @@ func (m *Mysql) QueryString(query string, args ...interface{}) ([]map[string]str
 	return m.Rows2Strings(rows)
 }
 
-func (m *Mysql) QueryFieldSlice(field string, query string, args ...interface{}) ([]interface{}, error) {
+func (m *Mysql) QueryFieldInterfaceSlice(field string, query string, args ...interface{}) ([]interface{}, error) {
 	rows, err := m.QueryInterface(query, args...)
 	if err != nil {
 		return nil, err
@@ -224,7 +232,7 @@ func (m *Mysql) QueryFieldSlice(field string, query string, args ...interface{})
 	return values, nil
 }
 
-func (m *Mysql) QueryField(field string, query string, args ...interface{}) (interface{}, error) {
+func (m *Mysql) QueryFieldInterface(field string, query string, args ...interface{}) (interface{}, error) {
 	row, err := m.QueryInterfaceRow(query, args...)
 	if err != nil {
 		return nil, err
