@@ -9,6 +9,17 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+func init() {
+	simple.RegisterDriver("mysql", func(dsn string) (simple.Driver, error) {
+		driver, err := NewDriver(dsn)
+		if err != nil {
+			return nil, err
+		}
+
+		return driver, nil
+	})
+}
+
 func NewMysql(dsn string) *Mysql {
 	m := &Mysql{}
 	m.Dsn = dsn
@@ -39,6 +50,7 @@ func (m *Mysql) Connection() error {
 
 	return nil
 }
+
 func (m *Mysql) Ping() error {
 	return m.DB.Ping()
 }

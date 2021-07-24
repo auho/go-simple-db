@@ -10,6 +10,20 @@ import (
 	"time"
 )
 
+var drivers = make(map[string]func(string) (Driver, error))
+
+func RegisterDriver(driver string, newDriver func(string) (Driver, error)) {
+	drivers[driver] = newDriver
+}
+
+func NewDriver(driver string, dsn string) (Driver, error) {
+	if newDriver, ok := drivers[driver]; ok {
+		return newDriver(dsn)
+	} else {
+		return nil, errors.New(fmt.Sprintf("%s driver is not exists", driver))
+	}
+}
+
 type Driver interface {
 	Connection() error
 	Ping() error

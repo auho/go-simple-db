@@ -8,6 +8,8 @@ import (
 	"strconv"
 	"testing"
 	"time"
+
+	"github.com/auho/go-simple-db/simple"
 )
 
 var dsn = "test:test@tcp(127.0.0.1:3306)/test"
@@ -59,6 +61,32 @@ func tearDown() {
 	}
 
 	db.Close()
+}
+
+func Test_NewDriver(t *testing.T) {
+	mysql, err := simple.NewDriver("mysql", dsn)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = mysql.Ping()
+	if err != nil {
+		t.Error(err)
+	}
+}
+
+func TestMysql_NewMysql(t *testing.T) {
+	driver := NewMysql(dsn)
+
+	err := driver.Connection()
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = driver.Ping()
+	if err != nil {
+		t.Error(err)
+	}
 }
 
 func TestMysql_NewDriver(t *testing.T) {
@@ -277,7 +305,7 @@ func TestMysql_QueryStringRow(t *testing.T) {
 	}
 }
 
-func TestMysql_QueryFieldSlice(t *testing.T) {
+func TestMysql_QueryFieldInterfaceSlice(t *testing.T) {
 	rowsNum := rand.Intn(50) + 1
 	minId := rand.Int63n(lastId - int64(rowsNum))
 	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `id` > ? LIMIT %d", tableName, rowsNum)
@@ -296,7 +324,7 @@ func TestMysql_QueryFieldSlice(t *testing.T) {
 	}
 }
 
-func TestMysql_QueryField(t *testing.T) {
+func TestMysql_QueryFieldInterface(t *testing.T) {
 	minId := rand.Int63n(lastId)
 	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `id` = ?", tableName)
 	value, err := db.QueryFieldInterface("value", query, minId)
