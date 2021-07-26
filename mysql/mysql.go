@@ -166,12 +166,19 @@ func (m *Mysql) Drop(tableName string) error {
 	return err
 }
 
+func (m *Mysql) Copy(sourceTable string, targetTable string) error {
+	query := fmt.Sprintf("CREATE TABLE `%s` LIKE `%s`", targetTable, sourceTable)
+	_, err := m.Exec(query)
+
+	return err
+}
+
 func (m *Mysql) GetTableColumns(tableName string) ([]interface{}, error) {
 	query := "SELECT `COLUMN_NAME` " +
 		"FROM `information_schema`.`COLUMNS` " +
 		"WHERE `TABLE_NAME` = ?"
 
-	return m.QueryFieldInterfaceSlice(query, tableName)
+	return m.QueryFieldInterfaceSlice("COLUMN_NAME", query, tableName)
 }
 
 func (m *Mysql) QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error) {

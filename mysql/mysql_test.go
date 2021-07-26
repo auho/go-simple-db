@@ -102,7 +102,9 @@ func TestMysql_NewDriver(t *testing.T) {
 }
 
 func TestMysql_Exec(t *testing.T) {
-	res, err := db.InsertFromSlice(tableName, []string{"name", "value"}, []interface{}{"exec", 1})
+	value := "exec"
+	query := fmt.Sprintf("INSERT INTO `%s` (`name`,`value`) VALUES(?, ?)", tableName)
+	res, err := db.Exec(query, value, 1)
 	if err != nil {
 		t.Error(err)
 	}
@@ -123,6 +125,47 @@ func TestMysql_Exec(t *testing.T) {
 
 	if rows <= 0 {
 		t.Error("rows affected is error")
+	}
+
+	rows2, err := db.QueryString(fmt.Sprintf("SELECT COUNT(*) FROM %s WHERE `name` = ?", tableName), value)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(rows2) <= 0 {
+		t.Error("insert into error")
+	}
+}
+
+func TestMysql_Copy_Truncate_Drop(t *testing.T) {
+	newTableName := tableName + "_copy"
+	err := db.Copy(tableName, newTableName)
+	if err != nil {
+		t.Error(err)
+	}
+
+	query := fmt.Sprintf("SELECT COUNT(*) AS _count FROM `%s`", newTableName)
+	res, err := db.QueryFieldInterface("_count", query)
+	if err != nil {
+		t.Error(err)
+	}
+
+	count, err := strconv.Atoi(string(res.([]uint8)))
+	if err != nil {
+		t.Error(err)
+	}
+	if count != 0 {
+		t.Error("copy is error")
+	}
+
+	err = db.Truncate(newTableName)
+	if err != nil {
+		t.Error(err)
+	}
+
+	err = db.Drop(newTableName)
+	if err != nil {
+		t.Error(err)
 	}
 }
 
@@ -245,6 +288,72 @@ func TestMysql_BulkInsertFromSliceMap(t *testing.T) {
 	}
 }
 
+func TestMysql_UpdateFromMapById(t *testing.T) {
+	m := make(map[string]interface{})
+	m["name"] = "update"
+	m["value"] = time.Now().Unix() - 100
+	m["id"] = lastId
+
+	err := db.UpdateFromMapById(tableName, "id", m)
+	if err != nil {
+		t.Error(err)
+	}
+
+	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `id` = ?", tableName)
+	row, err := db.QueryInterfaceRow(query, lastId)
+	if err != nil {
+		t.Error(err)
+	}
+
+	id := row["id"].(int64)
+	if id != lastId {
+		t.Error("id != last id")
+	}
+
+	name := string(row["name"].([]uint8))
+	if m["name"].(string) != name {
+		t.Error(fmt.Sprintf("name is %s, not %s", name, m["name"]))
+	}
+
+	value := row["value"].(int64)
+	if m["value"].(int64) != value {
+		t.Error(fmt.Sprintf("value is %s, not %s", name, m["value"]))
+	}
+}
+
+func TestMysql_BulkUpdateFromSliceMapById(t *testing.T) {
+	name := "bulk update"
+	rowsNum := rand.Intn(50) + 1
+	mSlice := make([]map[string]interface{}, rowsNum, rowsNum)
+
+	for i := 0; i < rowsNum; i++ {
+		m := make(map[string]interface{})
+		m["name"] = name
+		m["value"] = time.Now().Unix() % 10e7
+		m["id"] = i + 1
+		mSlice[i] = m
+	}
+
+	err := db.BulkUpdateFromSliceMapById(tableName, "id", mSlice)
+	if err != nil {
+		t.Error(err)
+	}
+
+	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `name` = ?", tableName)
+	rows, err := db.QueryFieldInterfaceSlice("value", query, name)
+	if err != nil {
+		t.Error(err)
+	}
+
+	if len(rows) != rowsNum {
+		t.Error("rows num is error")
+	}
+
+	if rows[0].(int64) <= 0 {
+		t.Error("value is error")
+	}
+}
+
 func TestMysql_QueryInterface(t *testing.T) {
 	rowsNum := rand.Intn(50) + 1
 	query := fmt.Sprintf("SELECT * FROM `%s` LIMIT %d", tableName, rowsNum)
@@ -337,68 +446,13 @@ func TestMysql_QueryFieldInterface(t *testing.T) {
 	}
 }
 
-func TestMysql_UpdateFromMapById(t *testing.T) {
-	m := make(map[string]interface{})
-	m["name"] = "update"
-	m["value"] = time.Now().Unix() - 100
-	m["id"] = lastId
-
-	err := db.UpdateFromMapById(tableName, "id", m)
+func TestMysql_GetTableColumns(t *testing.T) {
+	fields, err := db.GetTableColumns(tableName)
 	if err != nil {
 		t.Error(err)
 	}
 
-	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `id` = ?", tableName)
-	row, err := db.QueryInterfaceRow(query, lastId)
-	if err != nil {
-		t.Error(err)
-	}
-
-	id := row["id"].(int64)
-	if id != lastId {
-		t.Error("id != last id")
-	}
-
-	name := string(row["name"].([]uint8))
-	if m["name"].(string) != name {
-		t.Error(fmt.Sprintf("name is %s, not %s", name, m["name"]))
-	}
-
-	value := row["value"].(int64)
-	if m["value"].(int64) != value {
-		t.Error(fmt.Sprintf("value is %s, not %s", name, m["value"]))
-	}
-}
-
-func TestMysql_BulkUpdateFromSliceMapById(t *testing.T) {
-	name := "bulk update"
-	rowsNum := rand.Intn(50) + 1
-	mSlice := make([]map[string]interface{}, rowsNum, rowsNum)
-
-	for i := 0; i < rowsNum; i++ {
-		m := make(map[string]interface{})
-		m["name"] = name
-		m["value"] = time.Now().Unix() % 10e7
-		m["id"] = i + 1
-		mSlice[i] = m
-	}
-
-	err := db.BulkUpdateFromSliceMapById(tableName, "id", mSlice)
-	if err != nil {
-		t.Error(err)
-	}
-
-	query := fmt.Sprintf("SELECT * FROM `%s` WHERE `name` = ?", tableName)
-	rows, err := db.QueryFieldInterfaceSlice("value", query, name)
-	if err != nil {
-		t.Error(err)
-	}
-
-	if len(rows) != rowsNum {
-		t.Error("rows num is error")
-	}
-
-	if rows[0].(int64) <= 0 {
-		t.Error("value is error")
+	if len(fields) != 3 {
+		t.Error(fmt.Sprintf("fields num is error %d", len(fields)))
 	}
 }
