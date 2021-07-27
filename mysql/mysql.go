@@ -173,12 +173,22 @@ func (m *Mysql) Copy(sourceTable string, targetTable string) error {
 	return err
 }
 
-func (m *Mysql) GetTableColumns(tableName string) ([]interface{}, error) {
+func (m *Mysql) GetTableColumns(tableName string) ([]string, error) {
 	query := "SELECT `COLUMN_NAME` " +
 		"FROM `information_schema`.`COLUMNS` " +
 		"WHERE `TABLE_NAME` = ?"
 
-	return m.QueryFieldInterfaceSlice("COLUMN_NAME", query, tableName)
+	rows, err := m.QueryFieldInterfaceSlice("COLUMN_NAME", query, tableName)
+	if err != nil || rows == nil {
+		return nil, err
+	}
+
+	columns := make([]string, 0, len(rows))
+	for k := range rows {
+		columns = append(columns, string(rows[k].([]uint8)))
+	}
+
+	return columns, nil
 }
 
 func (m *Mysql) QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error) {

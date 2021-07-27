@@ -38,7 +38,7 @@ type Driver interface {
 	Truncate(tableName string) error
 	Drop(tableName string) error
 	Copy(sourceTableName string, targetTableName string) error
-	GetTableColumns(tableName string) ([]interface{}, error)
+	GetTableColumns(tableName string) ([]string, error)
 	QueryInterfaceRow(query string, args ...interface{}) (map[string]interface{}, error)
 	QueryInterface(query string, args ...interface{}) ([]map[string]interface{}, error)
 	QueryStringRow(query string, args ...interface{}) (map[string]string, error)
