@@ -210,7 +210,7 @@ func (e *Engine) GenerateBulkInsertPrepareQuery(tableName string, fields []strin
 }
 
 func (e *Engine) GenerateUpdatePrepareQuery(tableName string, keyName string, unSavedRow map[string]interface{}) (query string, fields []string, err error) {
-	if len(unSavedRow) <= 1 {
+	if len(unSavedRow) <= 0 {
 		return "", nil, errors.New("row is error")
 	}
 
