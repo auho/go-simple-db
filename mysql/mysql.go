@@ -5,20 +5,9 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/auho/go-simple-db/simple"
+	"github.com/auho/go-simple-db/engine"
 	_ "github.com/go-sql-driver/mysql"
 )
-
-func init() {
-	simple.RegisterDriver("mysql", func(dsn string) (simple.Driver, error) {
-		driver, err := NewDriver(dsn)
-		if err != nil {
-			return nil, err
-		}
-
-		return driver, nil
-	})
-}
 
 func NewMysql(dsn string) *Mysql {
 	m := &Mysql{}
@@ -27,18 +16,8 @@ func NewMysql(dsn string) *Mysql {
 	return m
 }
 
-func NewDriver(dsn string) (simple.Driver, error) {
-	m := NewMysql(dsn)
-	err := m.Connection()
-	if err != nil {
-		return nil, err
-	}
-
-	return m, nil
-}
-
 type Mysql struct {
-	simple.Engine
+	engine.Engine
 }
 
 func (m *Mysql) Connection() error {

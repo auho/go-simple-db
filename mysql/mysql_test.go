@@ -8,8 +8,6 @@ import (
 	"strconv"
 	"testing"
 	"time"
-
-	"github.com/auho/go-simple-db/simple"
 )
 
 var dsn = "test:test@tcp(127.0.0.1:3306)/test"
@@ -63,34 +61,10 @@ func tearDown() {
 	db.Close()
 }
 
-func Test_NewDriver(t *testing.T) {
-	mysql, err := simple.NewDriver("mysql", dsn)
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = mysql.Ping()
-	if err != nil {
-		t.Error(err)
-	}
-}
-
 func TestMysql_NewMysql(t *testing.T) {
 	driver := NewMysql(dsn)
 
 	err := driver.Connection()
-	if err != nil {
-		t.Error(err)
-	}
-
-	err = driver.Ping()
-	if err != nil {
-		t.Error(err)
-	}
-}
-
-func TestMysql_NewDriver(t *testing.T) {
-	driver, err := NewDriver(dsn)
 	if err != nil {
 		t.Error(err)
 	}

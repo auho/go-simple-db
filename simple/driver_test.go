@@ -4,8 +4,8 @@ import (
 	"testing"
 )
 
-func TestNewDriver(t *testing.T) {
-	d, err := NewDriver("mysql", mysqlDsn)
+func TestNewMysqlDriver(t *testing.T) {
+	d, err := NewMysqlDriver(mysqlDsn)
 	if err != nil {
 		t.Error(err)
 	}
