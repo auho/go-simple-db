@@ -153,11 +153,16 @@ func (m *Mysql) Copy(sourceTable string, targetTable string) error {
 }
 
 func (m *Mysql) GetTableColumns(tableName string) ([]string, error) {
+	database, err := m.QueryFieldInterface("database", "SELECT DATABASE() AS 'database'")
+	if err != nil {
+		return nil, err
+	}
+
 	query := "SELECT `COLUMN_NAME` " +
 		"FROM `information_schema`.`COLUMNS` " +
-		"WHERE `TABLE_NAME` = ?"
+		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 
-	rows, err := m.QueryFieldInterfaceSlice("COLUMN_NAME", query, tableName)
+	rows, err := m.QueryFieldInterfaceSlice("COLUMN_NAME", query, database, tableName)
 	if err != nil || rows == nil {
 		return nil, err
 	}
