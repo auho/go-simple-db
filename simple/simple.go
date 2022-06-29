@@ -21,6 +21,7 @@ func NewDriver(driver string, dsn string) (Driver, error) {
 }
 
 type Driver interface {
+	DriverName() string
 	Connection() error
 	Ping() error
 	Close()

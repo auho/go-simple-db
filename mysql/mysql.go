@@ -9,6 +9,8 @@ import (
 	_ "github.com/go-sql-driver/mysql"
 )
 
+var DriverName = "mysql"
+
 func NewMysql(dsn string) *Mysql {
 	m := &Mysql{}
 	m.Dsn = dsn
@@ -18,6 +20,10 @@ func NewMysql(dsn string) *Mysql {
 
 type Mysql struct {
 	engine.Engine
+}
+
+func (m *Mysql) DriverName() string {
+	return DriverName
 }
 
 func (m *Mysql) Connection() error {
