@@ -2,14 +2,23 @@ package go_simple_db
 
 import (
 	"github.com/auho/go-simple-db/v2/driver/clickhouse"
+	"github.com/auho/go-simple-db/v2/driver/driver"
 	"github.com/auho/go-simple-db/v2/driver/mysql"
 	"gorm.io/gorm"
 )
 
-func NewMysql(dsn string, c *gorm.Config) (*SimpleDB, error) {
-	return NewSimpleDB(mysql.NewDialector(dsn), c)
+// NewMysql
+// new mysql
+func NewMysql(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
+	return NewSimpleDB(func() (driver.Driver, error) {
+		return mysql.NewMysql(dsn, opts...)
+	})
 }
 
-func NewClickhouse(dsn string, c *gorm.Config) (*SimpleDB, error) {
-	return NewSimpleDB(clickhouse.NewDialector(dsn), c)
+// NewClickhouse
+// new clickhouse
+func NewClickhouse(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
+	return NewSimpleDB(func() (driver.Driver, error) {
+		return clickhouse.NewClickhouse(dsn, opts...)
+	})
 }
