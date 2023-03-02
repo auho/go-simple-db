@@ -10,7 +10,7 @@ import (
 // NewMysql
 // new mysql
 func NewMysql(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
-	return NewSimpleDB(func() (driver.Driver, error) {
+	return NewSimple(func() (driver.Driver, error) {
 		return mysql.NewMysql(dsn, opts...)
 	})
 }
@@ -18,7 +18,7 @@ func NewMysql(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
 // NewClickhouse
 // new clickhouse
 func NewClickhouse(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
-	return NewSimpleDB(func() (driver.Driver, error) {
+	return NewSimple(func() (driver.Driver, error) {
 		return clickhouse.NewClickhouse(dsn, opts...)
 	})
 }
