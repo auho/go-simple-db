@@ -53,12 +53,43 @@ func (s *SimpleDB) Ping() error {
 	return s.sqlDb.Ping()
 }
 
+func (s *SimpleDB) Close() error {
+	return s.sqlDb.Close()
+}
+
 func (s *SimpleDB) Truncate(table string) error {
 	return s.driver.Truncate(table)
 }
 
-func (s *SimpleDB) Close() error {
-	return s.sqlDb.Close()
+func (s *SimpleDB) Drop(table string) error {
+	return s.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table)).Error
+}
+
+func (s *SimpleDB) Copy(src string, dst string) error {
+	return s.Exec(fmt.Sprintf("CREATE TABLE %s LIKE %s", dst, src)).Error
+}
+
+func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
+	var row struct {
+		Database string
+	}
+
+	err := s.Raw("SELECT DATABASE() AS 'database'").Scan(&row).Error
+	if err != nil {
+		return nil, err
+	}
+
+	query := "SELECT `COLUMN_NAME` " +
+		"FROM `information_schema`.`COLUMNS` " +
+		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+
+	var columns []string
+	err = s.Raw(query, row.Database, table).Pluck("COLUMN_NAME", &columns).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return columns, nil
 }
 
 func (s *SimpleDB) BulkInsertFromSliceMap(table string, data []map[string]interface{}, batchSize int) error {
