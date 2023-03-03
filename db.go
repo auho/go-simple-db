@@ -62,11 +62,11 @@ func (s *SimpleDB) Truncate(table string) error {
 }
 
 func (s *SimpleDB) Drop(table string) error {
-	return s.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table)).Error
+	return s.DB.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table)).Error
 }
 
 func (s *SimpleDB) Copy(src string, dst string) error {
-	return s.Exec(fmt.Sprintf("CREATE TABLE %s LIKE %s", dst, src)).Error
+	return s.DB.Exec(fmt.Sprintf("CREATE TABLE %s LIKE %s", dst, src)).Error
 }
 
 func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
@@ -74,7 +74,7 @@ func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
 		Database string
 	}
 
-	err := s.Raw("SELECT DATABASE() AS 'database'").Scan(&row).Error
+	err := s.DB.Raw("SELECT DATABASE() AS 'database'").Scan(&row).Error
 	if err != nil {
 		return nil, err
 	}
@@ -84,7 +84,7 @@ func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
 		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 
 	var columns []string
-	err = s.Raw(query, row.Database, table).Pluck("COLUMN_NAME", &columns).Error
+	err = s.DB.Raw(query, row.Database, table).Pluck("COLUMN_NAME", &columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -93,7 +93,7 @@ func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
 }
 
 func (s *SimpleDB) BulkInsertFromSliceMap(table string, data []map[string]interface{}, batchSize int) error {
-	return s.Table(table).CreateInBatches(data, batchSize).Error
+	return s.DB.Table(table).CreateInBatches(data, batchSize).Error
 }
 
 func (s *SimpleDB) BulkInsertFromSliceSlice(table string, fields []string, data [][]interface{}, batchSize int) error {
@@ -118,7 +118,7 @@ func (s *SimpleDB) BulkUpdateFromSliceMapById(table string, id string, data []ma
 			return fmt.Errorf("table[%s] [%s] not found in map", table, id)
 		}
 
-		err := s.Table(table).Where("id = ?", _id).UpdateColumns(item).Error
+		err := s.DB.Table(table).Where("id = ?", _id).UpdateColumns(item).Error
 		if err != nil {
 			return fmt.Errorf("table[%s] %s[%v] error %v", table, id, _id, err)
 		}
