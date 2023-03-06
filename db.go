@@ -118,7 +118,7 @@ func (s *SimpleDB) BulkUpdateFromSliceMapById(table string, id string, data []ma
 			return fmt.Errorf("table[%s] [%s] not found in map", table, id)
 		}
 
-		err := s.DB.Table(table).Where("id = ?", _id).UpdateColumns(item).Error
+		err := s.DB.Table(table).Where(fmt.Sprintf("%s = ?", id), _id).UpdateColumns(item).Error
 		if err != nil {
 			return fmt.Errorf("table[%s] %s[%v] error %v", table, id, _id, err)
 		}
