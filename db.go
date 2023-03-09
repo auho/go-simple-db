@@ -92,13 +92,13 @@ func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
 	return columns, nil
 }
 
-func (s *SimpleDB) BulkInsertFromSliceMap(table string, data []map[string]interface{}, batchSize int) error {
+func (s *SimpleDB) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
 	return s.DB.Table(table).CreateInBatches(data, batchSize).Error
 }
 
-func (s *SimpleDB) BulkInsertFromSliceSlice(table string, fields []string, data [][]interface{}, batchSize int) error {
+func (s *SimpleDB) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
 	fieldsLen := len(fields)
-	sm := make([]map[string]interface{}, 0, len(data))
+	sm := make([]map[string]any, 0, len(data))
 	for _, item := range data {
 		m := make(map[string]any, fieldsLen)
 		for k1, field := range fields {
@@ -111,7 +111,7 @@ func (s *SimpleDB) BulkInsertFromSliceSlice(table string, fields []string, data 
 	return s.BulkInsertFromSliceMap(table, sm, batchSize)
 }
 
-func (s *SimpleDB) BulkUpdateFromSliceMapById(table string, id string, data []map[string]interface{}) error {
+func (s *SimpleDB) BulkUpdateFromSliceMapById(table string, id string, data []map[string]any) error {
 	for _, item := range data {
 		_id, ok := item[id]
 		if !ok {
