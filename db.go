@@ -41,6 +41,10 @@ func (s *SimpleDB) Name() string {
 	return s.DB.Name()
 }
 
+func (s *SimpleDB) DriverName() string {
+	return s.driver.DriverName()
+}
+
 func (s *SimpleDB) GormDB() *gorm.DB {
 	return s.DB
 }
