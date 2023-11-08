@@ -37,3 +37,7 @@ func (m *Mysql) DB() *gorm.DB {
 func (m *Mysql) Truncate(table string) error {
 	return m.db.Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)).Error
 }
+
+func (m *Mysql) DriverName() string {
+	return driver.Mysql
+}
