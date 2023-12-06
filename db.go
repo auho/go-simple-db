@@ -65,12 +65,25 @@ func (s *SimpleDB) Truncate(table string) error {
 	return s.driver.Truncate(table)
 }
 
+func (s *SimpleDB) DropAndCopy(src string, dst string) error {
+	err := s.Drop(dst)
+	if err != nil {
+		return err
+	}
+
+	return s.Copy(src, dst)
+}
+
 func (s *SimpleDB) Drop(table string) error {
-	return s.DB.Exec(fmt.Sprintf("DROP TABLE IF EXISTS %s", table)).Error
+	return s.DB.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", table)).Error
 }
 
 func (s *SimpleDB) Copy(src string, dst string) error {
-	return s.DB.Exec(fmt.Sprintf("CREATE TABLE %s LIKE %s", dst, src)).Error
+	return s.DB.Exec(fmt.Sprintf("CREATE TABLE `%s` LIKE `%s`", dst, src)).Error
+}
+
+func (s *SimpleDB) CopyData(src string, dst string) error {
+	return s.DB.Exec(fmt.Sprintf("INSERT INTO `%s` SELECT * FROM `%s`", dst, src)).Error
 }
 
 func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
