@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/auho/go-simple-db/v2/driver/driver"
+	"github.com/auho/go-simple-db/v2/schema"
 	"gorm.io/gorm"
 )
 
@@ -86,12 +87,41 @@ func (s *SimpleDB) CopyData(src string, dst string) error {
 	return s.DB.Exec(fmt.Sprintf("INSERT INTO `%s` SELECT * FROM `%s`", dst, src)).Error
 }
 
-func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
+func (s *SimpleDB) TableAmount(table string) (int, error) {
 	var row struct {
-		Database string
+		Amount int
 	}
 
-	err := s.DB.Raw("SELECT DATABASE() AS 'database'").Scan(&row).Error
+	_sql := fmt.Sprintf("SELECT COUNT(*) AS 'amount' FROM `%s`", table)
+	err := s.DB.Raw(_sql).Scan(&row).Error
+	if err != nil {
+		return 0, err
+	}
+
+	return row.Amount, nil
+}
+
+func (s *SimpleDB) GetTableColumnsSchema(table string) ([]schema.Column, error) {
+	database, err := s.GetDatabase()
+	if err != nil {
+		return nil, err
+	}
+
+	query := "SELECT `COLUMN_NAME` AS 'name', `DATA_TYPE` AS `field_type`" +
+		"FROM `information_schema`.`COLUMNS` " +
+		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+
+	var columns []schema.Column
+	err = s.DB.Raw(query, database, table).Scan(&columns).Error
+	if err != nil {
+		return nil, err
+	}
+
+	return columns, nil
+}
+
+func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
+	database, err := s.GetDatabase()
 	if err != nil {
 		return nil, err
 	}
@@ -101,12 +131,25 @@ func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
 		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 
 	var columns []string
-	err = s.DB.Raw(query, row.Database, table).Pluck("COLUMN_NAME", &columns).Error
+	err = s.DB.Raw(query, database, table).Pluck("COLUMN_NAME", &columns).Error
 	if err != nil {
 		return nil, err
 	}
 
 	return columns, nil
+}
+
+func (s *SimpleDB) GetDatabase() (string, error) {
+	var row struct {
+		Database string
+	}
+
+	err := s.DB.Raw("SELECT DATABASE() AS 'database'").Scan(&row).Error
+	if err != nil {
+		return "", err
+	}
+
+	return row.Database, nil
 }
 
 func (s *SimpleDB) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
