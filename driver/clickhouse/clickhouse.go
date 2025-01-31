@@ -37,3 +37,7 @@ func (c *Clickhouse) DB() *gorm.DB {
 func (c *Clickhouse) Truncate(table string) error {
 	return c.db.Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)).Error
 }
+
+func (c *Clickhouse) DriverName() string {
+	return driver.Clickhouse
+}
