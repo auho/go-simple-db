@@ -12,17 +12,11 @@ type SimpleDB struct {
 	driver driver.Driver
 }
 
-// NewSimple
-// new simple
-func NewSimple(fn func() (driver.Driver, error)) (*SimpleDB, error) {
-	d, err := fn()
-	if err != nil {
-		return nil, err
-	}
-
+// NewSimple creates a SimpleDB with the given driver.
+func NewSimple(d driver.Driver) *SimpleDB {
 	return &SimpleDB{
 		driver: d,
-	}, nil
+	}
 }
 
 func (s *SimpleDB) Driver() driver.Driver {
