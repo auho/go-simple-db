@@ -1,12 +1,13 @@
-package mysql
+package gorm
 
 import (
 	"database/sql"
 	"fmt"
 
 	"github.com/auho/go-simple-db/v2/driver/driver"
+	"github.com/auho/go-simple-db/v2/driver/mysql/internal"
 	"github.com/auho/go-simple-db/v2/schema"
-	"gorm.io/driver/mysql"
+	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )
 
@@ -14,11 +15,12 @@ import (
 // 参考 https://github.com/go-sql-driver/mysql#dsn-data-source-name 获取详情
 // "user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local"
 func NewDialector(dsn string) gorm.Dialector {
-	return mysql.Open(dsn)
+	return gormmysql.Open(dsn)
 }
 
 var _ driver.Driver = (*MySQL)(nil)
 var _ driver.GormProvider = (*MySQL)(nil)
+var _ driver.SqlDBProvider = (*MySQL)(nil)
 
 type MySQL struct {
 	db    *gorm.DB
@@ -60,25 +62,24 @@ func (m *MySQL) Close() error {
 }
 
 func (m *MySQL) Truncate(table string) error {
-	return m.db.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`", table)).Error
+	return m.db.Exec(internal.TruncateSQL(table)).Error
 }
 
 func (m *MySQL) Drop(table string) error {
-	return m.db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", table)).Error
+	return m.db.Exec(internal.DropSQL(table)).Error
 }
 
 func (m *MySQL) CopyStructure(src string, dst string) error {
-	return m.db.Exec(fmt.Sprintf("CREATE TABLE `%s` LIKE `%s`", dst, src)).Error
+	return m.db.Exec(internal.CopyStructureSQL(src, dst)).Error
 }
 
 func (m *MySQL) CopyData(src string, dst string) error {
-	return m.db.Exec(fmt.Sprintf("INSERT INTO `%s` SELECT * FROM `%s`", dst, src)).Error
+	return m.db.Exec(internal.CopyDataSQL(src, dst)).Error
 }
 
 func (m *MySQL) RowCount(table string) (int, error) {
 	var count int
-	query := fmt.Sprintf("SELECT COUNT(*) FROM `%s`", table)
-	err := m.db.Raw(query).Scan(&count).Error
+	err := m.db.Raw(internal.RowCountSQL(table)).Scan(&count).Error
 	if err != nil {
 		return 0, err
 	}
@@ -92,12 +93,8 @@ func (m *MySQL) GetTableColumnsSchema(table string) ([]schema.Column, error) {
 		return nil, err
 	}
 
-	query := "SELECT `COLUMN_NAME` AS `name`, `DATA_TYPE` AS `field_type` " +
-		"FROM `information_schema`.`COLUMNS` " +
-		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-
 	var columns []schema.Column
-	err = m.db.Raw(query, database, table).Scan(&columns).Error
+	err = m.db.Raw(internal.GetTableColumnsSchemaSQL, database, table).Scan(&columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -111,12 +108,8 @@ func (m *MySQL) GetTableColumns(table string) ([]string, error) {
 		return nil, err
 	}
 
-	query := "SELECT `COLUMN_NAME` " +
-		"FROM `information_schema`.`COLUMNS` " +
-		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-
 	var columns []string
-	err = m.db.Raw(query, database, table).Pluck("COLUMN_NAME", &columns).Error
+	err = m.db.Raw(internal.GetTableColumnsSQL, database, table).Pluck("COLUMN_NAME", &columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +119,7 @@ func (m *MySQL) GetTableColumns(table string) ([]string, error) {
 
 func (m *MySQL) GetDatabase() (string, error) {
 	var database string
-	err := m.db.Raw("SELECT DATABASE()").Scan(&database).Error
+	err := m.db.Raw(internal.GetDatabaseSQL).Scan(&database).Error
 	if err != nil {
 		return "", err
 	}
@@ -139,18 +132,7 @@ func (m *MySQL) BulkInsertFromSliceMap(table string, data []map[string]any, batc
 }
 
 func (m *MySQL) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
-	fieldsLen := len(fields)
-	sm := make([]map[string]any, 0, len(data))
-	for _, item := range data {
-		m := make(map[string]any, fieldsLen)
-		for k, field := range fields {
-			m[field] = item[k]
-		}
-
-		sm = append(sm, m)
-	}
-
-	return m.BulkInsertFromSliceMap(table, sm, batchSize)
+	return m.BulkInsertFromSliceMap(table, internal.SliceSliceToSliceMap(fields, data), batchSize)
 }
 
 func (m *MySQL) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
