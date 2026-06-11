@@ -1,25 +1,23 @@
 package driver
 
-import (
-	"github.com/auho/go-simple-db/v2/schema"
-	"gorm.io/gorm"
-)
+import "github.com/auho/go-simple-db/v2/schema"
 
-const Mysql = "mysql"
-const Clickhouse = "clickhouse"
+const MySQL = "mysql"
+const ClickHouse = "clickhouse"
 
 type Driver interface {
 	DriverName() string
-	DB() *gorm.DB
+	Ping() error
+	Close() error
 	Truncate(table string) error
 	Drop(table string) error
-	Copy(src string, dst string) error
+	CopyStructure(src string, dst string) error
 	CopyData(src string, dst string) error
-	TableAmount(table string) (int, error)
+	RowCount(table string) (int, error)
 	GetTableColumnsSchema(table string) ([]schema.Column, error)
 	GetTableColumns(table string) ([]string, error)
 	GetDatabase() (string, error)
 	BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error
 	BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error
-	BulkUpdateFromSliceMapById(table string, id string, data []map[string]any) error
+	BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error
 }
