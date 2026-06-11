@@ -6,6 +6,7 @@ import (
 
 	"github.com/auho/go-simple-db/v2/driver/clickhouse/internal"
 	"github.com/auho/go-simple-db/v2/driver/driver"
+	"github.com/auho/go-simple-db/v2/driver/util"
 	"github.com/auho/go-simple-db/v2/schema"
 	gormclickhouse "gorm.io/driver/clickhouse"
 	"gorm.io/gorm"
@@ -25,6 +26,7 @@ var _ driver.SqlDBProvider = (*ClickHouse)(nil)
 type ClickHouse struct {
 	db    *gorm.DB
 	sqlDb *sql.DB
+	sql   internal.SQL
 }
 
 func NewClickHouse(dsn string, opts ...gorm.Option) (driver.Driver, error) {
@@ -62,24 +64,24 @@ func (c *ClickHouse) Close() error {
 }
 
 func (c *ClickHouse) Truncate(table string) error {
-	return c.db.Exec(internal.TruncateSQL(table)).Error
+	return c.db.Exec(c.sql.Truncate(table)).Error
 }
 
 func (c *ClickHouse) Drop(table string) error {
-	return c.db.Exec(internal.DropSQL(table)).Error
+	return c.db.Exec(c.sql.Drop(table)).Error
 }
 
 func (c *ClickHouse) CopyStructure(src string, dst string) error {
-	return c.db.Exec(internal.CopyStructureSQL(src, dst)).Error
+	return c.db.Exec(c.sql.CopyStructure(src, dst)).Error
 }
 
 func (c *ClickHouse) CopyData(src string, dst string) error {
-	return c.db.Exec(internal.CopyDataSQL(src, dst)).Error
+	return c.db.Exec(c.sql.CopyData(src, dst)).Error
 }
 
 func (c *ClickHouse) RowCount(table string) (int, error) {
 	var count int
-	err := c.db.Raw(internal.RowCountSQL(table)).Scan(&count).Error
+	err := c.db.Raw(c.sql.RowCount(table)).Scan(&count).Error
 	if err != nil {
 		return 0, err
 	}
@@ -94,7 +96,7 @@ func (c *ClickHouse) GetTableColumnsSchema(table string) ([]schema.Column, error
 	}
 
 	var columns []schema.Column
-	err = c.db.Raw(internal.GetTableColumnsSchemaSQL, database, table).Scan(&columns).Error
+	err = c.db.Raw(c.sql.GetTableColumnsSchema(), database, table).Scan(&columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +111,7 @@ func (c *ClickHouse) GetTableColumns(table string) ([]string, error) {
 	}
 
 	var columns []string
-	err = c.db.Raw(internal.GetTableColumnsSQL, database, table).Pluck("name", &columns).Error
+	err = c.db.Raw(c.sql.GetTableColumns(), database, table).Pluck("name", &columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +121,7 @@ func (c *ClickHouse) GetTableColumns(table string) ([]string, error) {
 
 func (c *ClickHouse) GetDatabase() (string, error) {
 	var database string
-	err := c.db.Raw(internal.GetDatabaseSQL).Scan(&database).Error
+	err := c.db.Raw(c.sql.GetDatabase()).Scan(&database).Error
 	if err != nil {
 		return "", err
 	}
@@ -132,7 +134,7 @@ func (c *ClickHouse) BulkInsertFromSliceMap(table string, data []map[string]any,
 }
 
 func (c *ClickHouse) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
-	return c.BulkInsertFromSliceMap(table, internal.SliceSliceToSliceMap(fields, data), batchSize)
+	return c.BulkInsertFromSliceMap(table, util.SliceSliceToSliceMap(fields, data), batchSize)
 }
 
 func (c *ClickHouse) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
