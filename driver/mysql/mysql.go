@@ -1,6 +1,7 @@
 package mysql
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/auho/go-simple-db/v2/driver/driver"
@@ -16,66 +17,82 @@ func NewDialector(dsn string) gorm.Dialector {
 	return mysql.Open(dsn)
 }
 
-var _ driver.Driver = (*Mysql)(nil)
+var _ driver.Driver = (*MySQL)(nil)
+var _ driver.GormProvider = (*MySQL)(nil)
 
-type Mysql struct {
-	db *gorm.DB
+type MySQL struct {
+	db    *gorm.DB
+	sqlDb *sql.DB
 }
 
-func NewMysql(dsn string, opts ...gorm.Option) (driver.Driver, error) {
+func NewMySQL(dsn string, opts ...gorm.Option) (driver.Driver, error) {
 	db, err := gorm.Open(NewDialector(dsn), opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Mysql{db: db}, nil
+	sqlDb, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	return &MySQL{db: db, sqlDb: sqlDb}, nil
 }
 
-func (m *Mysql) DB() *gorm.DB {
+func (m *MySQL) DriverName() string {
+	return driver.MySQL
+}
+
+func (m *MySQL) GormDB() *gorm.DB {
 	return m.db
 }
 
-func (m *Mysql) Truncate(table string) error {
-	return m.db.Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)).Error
+func (m *MySQL) SqlDB() *sql.DB {
+	return m.sqlDb
 }
 
-func (m *Mysql) DriverName() string {
-	return driver.Mysql
+func (m *MySQL) Ping() error {
+	return m.sqlDb.Ping()
 }
 
-func (m *Mysql) Drop(table string) error {
+func (m *MySQL) Close() error {
+	return m.sqlDb.Close()
+}
+
+func (m *MySQL) Truncate(table string) error {
+	return m.db.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`", table)).Error
+}
+
+func (m *MySQL) Drop(table string) error {
 	return m.db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", table)).Error
 }
 
-func (m *Mysql) Copy(src string, dst string) error {
+func (m *MySQL) CopyStructure(src string, dst string) error {
 	return m.db.Exec(fmt.Sprintf("CREATE TABLE `%s` LIKE `%s`", dst, src)).Error
 }
 
-func (m *Mysql) CopyData(src string, dst string) error {
+func (m *MySQL) CopyData(src string, dst string) error {
 	return m.db.Exec(fmt.Sprintf("INSERT INTO `%s` SELECT * FROM `%s`", dst, src)).Error
 }
 
-func (m *Mysql) TableAmount(table string) (int, error) {
-	var row struct {
-		Amount int
-	}
-
-	_sql := fmt.Sprintf("SELECT COUNT(*) AS 'amount' FROM `%s`", table)
-	err := m.db.Raw(_sql).Scan(&row).Error
+func (m *MySQL) RowCount(table string) (int, error) {
+	var count int
+	query := fmt.Sprintf("SELECT COUNT(*) FROM `%s`", table)
+	err := m.db.Raw(query).Scan(&count).Error
 	if err != nil {
 		return 0, err
 	}
 
-	return row.Amount, nil
+	return count, nil
 }
 
-func (m *Mysql) GetTableColumnsSchema(table string) ([]schema.Column, error) {
+func (m *MySQL) GetTableColumnsSchema(table string) ([]schema.Column, error) {
 	database, err := m.GetDatabase()
 	if err != nil {
 		return nil, err
 	}
 
-	query := "SELECT `COLUMN_NAME` AS 'name', `DATA_TYPE` AS `field_type` " +
+	query := "SELECT `COLUMN_NAME` AS `name`, `DATA_TYPE` AS `field_type` " +
 		"FROM `information_schema`.`COLUMNS` " +
 		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
 
@@ -88,7 +105,7 @@ func (m *Mysql) GetTableColumnsSchema(table string) ([]schema.Column, error) {
 	return columns, nil
 }
 
-func (m *Mysql) GetTableColumns(table string) ([]string, error) {
+func (m *MySQL) GetTableColumns(table string) ([]string, error) {
 	database, err := m.GetDatabase()
 	if err != nil {
 		return nil, err
@@ -107,30 +124,27 @@ func (m *Mysql) GetTableColumns(table string) ([]string, error) {
 	return columns, nil
 }
 
-func (m *Mysql) GetDatabase() (string, error) {
-	var row struct {
-		Database string
-	}
-
-	err := m.db.Raw("SELECT DATABASE() AS 'database'").Scan(&row).Error
+func (m *MySQL) GetDatabase() (string, error) {
+	var database string
+	err := m.db.Raw("SELECT DATABASE()").Scan(&database).Error
 	if err != nil {
 		return "", err
 	}
 
-	return row.Database, nil
+	return database, nil
 }
 
-func (m *Mysql) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
+func (m *MySQL) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
 	return m.db.Table(table).CreateInBatches(data, batchSize).Error
 }
 
-func (m *Mysql) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
+func (m *MySQL) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
 	fieldsLen := len(fields)
 	sm := make([]map[string]any, 0, len(data))
 	for _, item := range data {
 		m := make(map[string]any, fieldsLen)
-		for k1, field := range fields {
-			m[field] = item[k1]
+		for k, field := range fields {
+			m[field] = item[k]
 		}
 
 		sm = append(sm, m)
@@ -139,7 +153,7 @@ func (m *Mysql) BulkInsertFromSliceSlice(table string, fields []string, data [][
 	return m.BulkInsertFromSliceMap(table, sm, batchSize)
 }
 
-func (m *Mysql) BulkUpdateFromSliceMapById(table string, id string, data []map[string]any) error {
+func (m *MySQL) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
 	for _, item := range data {
 		_id, ok := item[id]
 		if !ok {
