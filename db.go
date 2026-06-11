@@ -41,10 +41,7 @@ func (s *SimpleDB) GormDB() *gorm.DB {
 // SqlDB returns the underlying *sql.DB if the driver implements SqlDBProvider.
 // Returns nil if the driver does not support it.
 func (s *SimpleDB) SqlDB() *sql.DB {
-	type sqlDBProvider interface {
-		SqlDB() *sql.DB
-	}
-	if p, ok := s.driver.(sqlDBProvider); ok {
+	if p, ok := s.driver.(driver.SqlDBProvider); ok {
 		return p.SqlDB()
 	}
 	return nil
