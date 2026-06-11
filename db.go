@@ -9,9 +9,6 @@ import (
 )
 
 type SimpleDB struct {
-	*gorm.DB
-
-	sqlDb  *sql.DB
 	driver driver.Driver
 }
 
@@ -23,71 +20,80 @@ func NewSimple(fn func() (driver.Driver, error)) (*SimpleDB, error) {
 		return nil, err
 	}
 
-	db := d.DB()
-
-	sqlDb, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
 	return &SimpleDB{
-		DB:     db,
-		sqlDb:  sqlDb,
 		driver: d,
 	}, nil
 }
 
+func (s *SimpleDB) Driver() driver.Driver {
+	return s.driver
+}
+
+// GormDB returns the underlying *gorm.DB if the driver implements GormProvider.
+// Returns nil if the driver does not use GORM.
+func (s *SimpleDB) GormDB() *gorm.DB {
+	if gp, ok := s.driver.(driver.GormProvider); ok {
+		return gp.GormDB()
+	}
+	return nil
+}
+
+// SqlDB returns the underlying *sql.DB if the driver implements SqlDBProvider.
+// Returns nil if the driver does not support it.
+func (s *SimpleDB) SqlDB() *sql.DB {
+	type sqlDBProvider interface {
+		SqlDB() *sql.DB
+	}
+	if p, ok := s.driver.(sqlDBProvider); ok {
+		return p.SqlDB()
+	}
+	return nil
+}
+
+func (s *SimpleDB) Ping() error {
+	return s.driver.Ping()
+}
+
+func (s *SimpleDB) Close() error {
+	return s.driver.Close()
+}
+
 func (s *SimpleDB) Name() string {
-	return s.DB.Name()
+	database, _ := s.driver.GetDatabase()
+	return database
 }
 
 func (s *SimpleDB) DriverName() string {
 	return s.driver.DriverName()
 }
 
-func (s *SimpleDB) GormDB() *gorm.DB {
-	return s.DB
-}
-
-func (s *SimpleDB) SqlDB() *sql.DB {
-	return s.sqlDb
-}
-
-func (s *SimpleDB) Ping() error {
-	return s.sqlDb.Ping()
-}
-
-func (s *SimpleDB) Close() error {
-	return s.sqlDb.Close()
-}
-
 func (s *SimpleDB) Truncate(table string) error {
 	return s.driver.Truncate(table)
 }
 
-func (s *SimpleDB) DropAndCopy(src string, dst string) error {
+func (s *SimpleDB) DropAndCopyStructure(src string, dst string) error {
 	err := s.Drop(dst)
 	if err != nil {
 		return err
 	}
 
-	return s.Copy(src, dst)
+	return s.CopyStructure(src, dst)
 }
 
 func (s *SimpleDB) Drop(table string) error {
 	return s.driver.Drop(table)
 }
 
-func (s *SimpleDB) Copy(src string, dst string) error {
-	return s.driver.Copy(src, dst)
+func (s *SimpleDB) CopyStructure(src string, dst string) error {
+	return s.driver.CopyStructure(src, dst)
 }
 
 func (s *SimpleDB) CopyData(src string, dst string) error {
 	return s.driver.CopyData(src, dst)
 }
 
-func (s *SimpleDB) TableAmount(table string) (int, error) {
-	return s.driver.TableAmount(table)
+func (s *SimpleDB) RowCount(table string) (int, error) {
+	return s.driver.RowCount(table)
 }
 
 func (s *SimpleDB) GetTableColumnsSchema(table string) ([]schema.Column, error) {
@@ -110,6 +116,6 @@ func (s *SimpleDB) BulkInsertFromSliceSlice(table string, fields []string, data 
 	return s.driver.BulkInsertFromSliceSlice(table, fields, data, batchSize)
 }
 
-func (s *SimpleDB) BulkUpdateFromSliceMapById(table string, id string, data []map[string]any) error {
-	return s.driver.BulkUpdateFromSliceMapById(table, id, data)
+func (s *SimpleDB) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
+	return s.driver.BulkUpdateFromSliceMapByID(table, id, data)
 }
