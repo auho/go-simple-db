@@ -6,6 +6,7 @@ import (
 
 	"github.com/auho/go-simple-db/v2/driver/driver"
 	"github.com/auho/go-simple-db/v2/driver/mysql/internal"
+	"github.com/auho/go-simple-db/v2/driver/util"
 	"github.com/auho/go-simple-db/v2/schema"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -25,6 +26,7 @@ var _ driver.SqlDBProvider = (*MySQL)(nil)
 type MySQL struct {
 	db    *gorm.DB
 	sqlDb *sql.DB
+	sql   internal.SQL
 }
 
 func NewMySQL(dsn string, opts ...gorm.Option) (driver.Driver, error) {
@@ -62,24 +64,24 @@ func (m *MySQL) Close() error {
 }
 
 func (m *MySQL) Truncate(table string) error {
-	return m.db.Exec(internal.TruncateSQL(table)).Error
+	return m.db.Exec(m.sql.Truncate(table)).Error
 }
 
 func (m *MySQL) Drop(table string) error {
-	return m.db.Exec(internal.DropSQL(table)).Error
+	return m.db.Exec(m.sql.Drop(table)).Error
 }
 
 func (m *MySQL) CopyStructure(src string, dst string) error {
-	return m.db.Exec(internal.CopyStructureSQL(src, dst)).Error
+	return m.db.Exec(m.sql.CopyStructure(src, dst)).Error
 }
 
 func (m *MySQL) CopyData(src string, dst string) error {
-	return m.db.Exec(internal.CopyDataSQL(src, dst)).Error
+	return m.db.Exec(m.sql.CopyData(src, dst)).Error
 }
 
 func (m *MySQL) RowCount(table string) (int, error) {
 	var count int
-	err := m.db.Raw(internal.RowCountSQL(table)).Scan(&count).Error
+	err := m.db.Raw(m.sql.RowCount(table)).Scan(&count).Error
 	if err != nil {
 		return 0, err
 	}
@@ -94,7 +96,7 @@ func (m *MySQL) GetTableColumnsSchema(table string) ([]schema.Column, error) {
 	}
 
 	var columns []schema.Column
-	err = m.db.Raw(internal.GetTableColumnsSchemaSQL, database, table).Scan(&columns).Error
+	err = m.db.Raw(m.sql.GetTableColumnsSchema(), database, table).Scan(&columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -109,7 +111,7 @@ func (m *MySQL) GetTableColumns(table string) ([]string, error) {
 	}
 
 	var columns []string
-	err = m.db.Raw(internal.GetTableColumnsSQL, database, table).Pluck("COLUMN_NAME", &columns).Error
+	err = m.db.Raw(m.sql.GetTableColumns(), database, table).Pluck("COLUMN_NAME", &columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -119,7 +121,7 @@ func (m *MySQL) GetTableColumns(table string) ([]string, error) {
 
 func (m *MySQL) GetDatabase() (string, error) {
 	var database string
-	err := m.db.Raw(internal.GetDatabaseSQL).Scan(&database).Error
+	err := m.db.Raw(m.sql.GetDatabase()).Scan(&database).Error
 	if err != nil {
 		return "", err
 	}
@@ -132,7 +134,7 @@ func (m *MySQL) BulkInsertFromSliceMap(table string, data []map[string]any, batc
 }
 
 func (m *MySQL) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
-	return m.BulkInsertFromSliceMap(table, internal.SliceSliceToSliceMap(fields, data), batchSize)
+	return m.BulkInsertFromSliceMap(table, util.SliceSliceToSliceMap(fields, data), batchSize)
 }
 
 func (m *MySQL) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
