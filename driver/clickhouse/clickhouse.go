@@ -1,6 +1,7 @@
 package clickhouse
 
 import (
+	"database/sql"
 	"fmt"
 
 	"github.com/auho/go-simple-db/v2/driver/driver"
@@ -16,60 +17,76 @@ func NewDialector(dsn string) gorm.Dialector {
 	return clickhouse.Open(dsn)
 }
 
-var _ driver.Driver = (*Clickhouse)(nil)
+var _ driver.Driver = (*ClickHouse)(nil)
+var _ driver.GormProvider = (*ClickHouse)(nil)
 
-type Clickhouse struct {
-	db *gorm.DB
+type ClickHouse struct {
+	db    *gorm.DB
+	sqlDb *sql.DB
 }
 
-func NewClickhouse(dsn string, opts ...gorm.Option) (driver.Driver, error) {
+func NewClickHouse(dsn string, opts ...gorm.Option) (driver.Driver, error) {
 	db, err := gorm.Open(NewDialector(dsn), opts...)
 	if err != nil {
 		return nil, err
 	}
 
-	return &Clickhouse{db: db}, nil
+	sqlDb, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+
+	return &ClickHouse{db: db, sqlDb: sqlDb}, nil
 }
 
-func (c *Clickhouse) DB() *gorm.DB {
+func (c *ClickHouse) DriverName() string {
+	return driver.ClickHouse
+}
+
+func (c *ClickHouse) GormDB() *gorm.DB {
 	return c.db
 }
 
-func (c *Clickhouse) Truncate(table string) error {
-	return c.db.Exec(fmt.Sprintf("TRUNCATE TABLE %s", table)).Error
+func (c *ClickHouse) SqlDB() *sql.DB {
+	return c.sqlDb
 }
 
-func (c *Clickhouse) DriverName() string {
-	return driver.Clickhouse
+func (c *ClickHouse) Ping() error {
+	return c.sqlDb.Ping()
 }
 
-func (c *Clickhouse) Drop(table string) error {
+func (c *ClickHouse) Close() error {
+	return c.sqlDb.Close()
+}
+
+func (c *ClickHouse) Truncate(table string) error {
+	return c.db.Exec(fmt.Sprintf("TRUNCATE TABLE `%s`", table)).Error
+}
+
+func (c *ClickHouse) Drop(table string) error {
 	return c.db.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", table)).Error
 }
 
-func (c *Clickhouse) Copy(src string, dst string) error {
+func (c *ClickHouse) CopyStructure(src string, dst string) error {
 	return c.db.Exec(fmt.Sprintf("CREATE TABLE `%s` AS `%s` WITH NO DATA", dst, src)).Error
 }
 
-func (c *Clickhouse) CopyData(src string, dst string) error {
+func (c *ClickHouse) CopyData(src string, dst string) error {
 	return c.db.Exec(fmt.Sprintf("INSERT INTO `%s` SELECT * FROM `%s`", dst, src)).Error
 }
 
-func (c *Clickhouse) TableAmount(table string) (int, error) {
-	var row struct {
-		Amount int
-	}
-
-	_sql := fmt.Sprintf("SELECT COUNT() AS amount FROM `%s`", table)
-	err := c.db.Raw(_sql).Scan(&row).Error
+func (c *ClickHouse) RowCount(table string) (int, error) {
+	var count int
+	query := fmt.Sprintf("SELECT COUNT() FROM `%s`", table)
+	err := c.db.Raw(query).Scan(&count).Error
 	if err != nil {
 		return 0, err
 	}
 
-	return row.Amount, nil
+	return count, nil
 }
 
-func (c *Clickhouse) GetTableColumnsSchema(table string) ([]schema.Column, error) {
+func (c *ClickHouse) GetTableColumnsSchema(table string) ([]schema.Column, error) {
 	database, err := c.GetDatabase()
 	if err != nil {
 		return nil, err
@@ -88,7 +105,7 @@ func (c *Clickhouse) GetTableColumnsSchema(table string) ([]schema.Column, error
 	return columns, nil
 }
 
-func (c *Clickhouse) GetTableColumns(table string) ([]string, error) {
+func (c *ClickHouse) GetTableColumns(table string) ([]string, error) {
 	database, err := c.GetDatabase()
 	if err != nil {
 		return nil, err
@@ -107,30 +124,27 @@ func (c *Clickhouse) GetTableColumns(table string) ([]string, error) {
 	return columns, nil
 }
 
-func (c *Clickhouse) GetDatabase() (string, error) {
-	var row struct {
-		Database string
-	}
-
-	err := c.db.Raw("SELECT currentDatabase() AS database").Scan(&row).Error
+func (c *ClickHouse) GetDatabase() (string, error) {
+	var database string
+	err := c.db.Raw("SELECT currentDatabase()").Scan(&database).Error
 	if err != nil {
 		return "", err
 	}
 
-	return row.Database, nil
+	return database, nil
 }
 
-func (c *Clickhouse) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
+func (c *ClickHouse) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
 	return c.db.Table(table).CreateInBatches(data, batchSize).Error
 }
 
-func (c *Clickhouse) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
+func (c *ClickHouse) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
 	fieldsLen := len(fields)
 	sm := make([]map[string]any, 0, len(data))
 	for _, item := range data {
 		m := make(map[string]any, fieldsLen)
-		for k1, field := range fields {
-			m[field] = item[k1]
+		for k, field := range fields {
+			m[field] = item[k]
 		}
 
 		sm = append(sm, m)
@@ -139,7 +153,7 @@ func (c *Clickhouse) BulkInsertFromSliceSlice(table string, fields []string, dat
 	return c.BulkInsertFromSliceMap(table, sm, batchSize)
 }
 
-func (c *Clickhouse) BulkUpdateFromSliceMapById(table string, id string, data []map[string]any) error {
+func (c *ClickHouse) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
 	for _, item := range data {
 		_id, ok := item[id]
 		if !ok {
