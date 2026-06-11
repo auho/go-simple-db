@@ -7,18 +7,18 @@ import (
 	"gorm.io/gorm"
 )
 
-// NewMysql
+// NewMySQL
 // new mysql
-func NewMysql(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
+func NewMySQL(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
 	return NewSimple(func() (driver.Driver, error) {
-		return mysql.NewMysql(dsn, opts...)
+		return mysql.NewMySQL(dsn, opts...)
 	})
 }
 
-// NewClickhouse
+// NewClickHouse
 // new clickhouse
-func NewClickhouse(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
+func NewClickHouse(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
 	return NewSimple(func() (driver.Driver, error) {
-		return clickhouse.NewClickhouse(dsn, opts...)
+		return clickhouse.NewClickHouse(dsn, opts...)
 	})
 }
