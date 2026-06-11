@@ -1,4 +1,4 @@
-package go_simple_db
+package simpledb
 
 import (
 	"github.com/auho/go-simple-db/v2/driver/clickhouse/gorm"

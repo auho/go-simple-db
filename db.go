@@ -1,4 +1,4 @@
-package go_simple_db
+package simpledb
 
 import (
 	"database/sql"
