@@ -29,7 +29,7 @@ type ClickHouse struct {
 	sql   internal.SQL
 }
 
-func NewClickHouse(dsn string, opts ...gorm.Option) (driver.Driver, error) {
+func NewClickHouse(dsn string, opts ...gorm.Option) (*ClickHouse, error) {
 	db, err := gorm.Open(NewDialector(dsn), opts...)
 	if err != nil {
 		return nil, err

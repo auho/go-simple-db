@@ -29,7 +29,7 @@ type MySQL struct {
 	sql   internal.SQL
 }
 
-func NewMySQL(dsn string, opts ...gorm.Option) (driver.Driver, error) {
+func NewMySQL(dsn string, opts ...gorm.Option) (*MySQL, error) {
 	db, err := gorm.Open(NewDialector(dsn), opts...)
 	if err != nil {
 		return nil, err
