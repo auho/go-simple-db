@@ -1,24 +1,29 @@
-package go_simple_db
+package simpledb
 
 import (
-	"github.com/auho/go-simple-db/v2/driver/clickhouse"
-	"github.com/auho/go-simple-db/v2/driver/driver"
-	"github.com/auho/go-simple-db/v2/driver/mysql"
-	"gorm.io/gorm"
+	"github.com/auho/go-simple-db/v3/driver/clickhouse/gorm"
+	mysqlgorm "github.com/auho/go-simple-db/v3/driver/mysql/gorm"
+	gormlib "gorm.io/gorm"
 )
 
-// NewMysql
-// new mysql
-func NewMysql(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
-	return NewSimple(func() (driver.Driver, error) {
-		return mysql.NewMysql(dsn, opts...)
-	})
+// NewMySQLGorm
+// new mysql with gorm driver
+func NewMySQLGorm(dsn string, opts ...gormlib.Option) (*SimpleDB, *gormlib.DB, error) {
+	d, err := mysqlgorm.NewMySQL(dsn, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return NewSimple(d), d.GormDB(), nil
 }
 
-// NewClickhouse
-// new clickhouse
-func NewClickhouse(dsn string, opts ...gorm.Option) (*SimpleDB, error) {
-	return NewSimple(func() (driver.Driver, error) {
-		return clickhouse.NewClickhouse(dsn, opts...)
-	})
+// NewClickHouseGorm
+// new clickhouse with gorm driver
+func NewClickHouseGorm(dsn string, opts ...gormlib.Option) (*SimpleDB, *gormlib.DB, error) {
+	d, err := gorm.NewClickHouse(dsn, opts...)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return NewSimple(d), d.GormDB(), nil
 }

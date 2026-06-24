@@ -1,188 +1,114 @@
-package go_simple_db
+package simpledb
 
 import (
 	"database/sql"
-	"fmt"
 
-	"github.com/auho/go-simple-db/v2/driver/driver"
-	"github.com/auho/go-simple-db/v2/schema"
+	"github.com/auho/go-simple-db/v3/driver/driver"
+	"github.com/auho/go-simple-db/v3/schema"
 	"gorm.io/gorm"
 )
 
 type SimpleDB struct {
-	*gorm.DB
-
-	sqlDb  *sql.DB
 	driver driver.Driver
 }
 
-// NewSimple
-// new simple
-func NewSimple(fn func() (driver.Driver, error)) (*SimpleDB, error) {
-	d, err := fn()
-	if err != nil {
-		return nil, err
-	}
-
-	db := d.DB()
-
-	sqlDb, err := db.DB()
-	if err != nil {
-		return nil, err
-	}
-
+// NewSimple creates a SimpleDB with the given driver.
+func NewSimple(d driver.Driver) *SimpleDB {
 	return &SimpleDB{
-		DB:     db,
-		sqlDb:  sqlDb,
 		driver: d,
-	}, nil
+	}
+}
+
+func (s *SimpleDB) Driver() driver.Driver {
+	return s.driver
+}
+
+// GormDB returns the underlying *gorm.DB if the driver implements GormProvider.
+// Returns nil if the driver does not use GORM.
+func (s *SimpleDB) GormDB() *gorm.DB {
+	if gp, ok := s.driver.(driver.GormProvider); ok {
+		return gp.GormDB()
+	}
+
+	return nil
+}
+
+// SqlDB returns the underlying *sql.DB if the driver implements SqlDBProvider.
+// Returns nil if the driver does not support it.
+func (s *SimpleDB) SqlDB() *sql.DB {
+	if p, ok := s.driver.(driver.SqlDBProvider); ok {
+		return p.SqlDB()
+	}
+
+	return nil
+}
+
+func (s *SimpleDB) Ping() error {
+	return s.driver.Ping()
+}
+
+func (s *SimpleDB) Close() error {
+	return s.driver.Close()
 }
 
 func (s *SimpleDB) Name() string {
-	return s.DB.Name()
+	database, _ := s.driver.GetDatabase()
+	return database
 }
 
 func (s *SimpleDB) DriverName() string {
 	return s.driver.DriverName()
 }
 
-func (s *SimpleDB) GormDB() *gorm.DB {
-	return s.DB
-}
-
-func (s *SimpleDB) SqlDB() *sql.DB {
-	return s.sqlDb
-}
-
-func (s *SimpleDB) Ping() error {
-	return s.sqlDb.Ping()
-}
-
-func (s *SimpleDB) Close() error {
-	return s.sqlDb.Close()
-}
-
 func (s *SimpleDB) Truncate(table string) error {
 	return s.driver.Truncate(table)
 }
 
-func (s *SimpleDB) DropAndCopy(src string, dst string) error {
+func (s *SimpleDB) DropAndCopyStructure(src string, dst string) error {
 	err := s.Drop(dst)
 	if err != nil {
 		return err
 	}
 
-	return s.Copy(src, dst)
+	return s.CopyStructure(src, dst)
 }
 
 func (s *SimpleDB) Drop(table string) error {
-	return s.DB.Exec(fmt.Sprintf("DROP TABLE IF EXISTS `%s`", table)).Error
+	return s.driver.Drop(table)
 }
 
-func (s *SimpleDB) Copy(src string, dst string) error {
-	return s.DB.Exec(fmt.Sprintf("CREATE TABLE `%s` LIKE `%s`", dst, src)).Error
+func (s *SimpleDB) CopyStructure(src string, dst string) error {
+	return s.driver.CopyStructure(src, dst)
 }
 
 func (s *SimpleDB) CopyData(src string, dst string) error {
-	return s.DB.Exec(fmt.Sprintf("INSERT INTO `%s` SELECT * FROM `%s`", dst, src)).Error
+	return s.driver.CopyData(src, dst)
 }
 
-func (s *SimpleDB) TableAmount(table string) (int, error) {
-	var row struct {
-		Amount int
-	}
-
-	_sql := fmt.Sprintf("SELECT COUNT(*) AS 'amount' FROM `%s`", table)
-	err := s.DB.Raw(_sql).Scan(&row).Error
-	if err != nil {
-		return 0, err
-	}
-
-	return row.Amount, nil
+func (s *SimpleDB) RowCount(table string) (int, error) {
+	return s.driver.RowCount(table)
 }
 
 func (s *SimpleDB) GetTableColumnsSchema(table string) ([]schema.Column, error) {
-	database, err := s.GetDatabase()
-	if err != nil {
-		return nil, err
-	}
-
-	query := "SELECT `COLUMN_NAME` AS 'name', `DATA_TYPE` AS `field_type`" +
-		"FROM `information_schema`.`COLUMNS` " +
-		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-
-	var columns []schema.Column
-	err = s.DB.Raw(query, database, table).Scan(&columns).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return columns, nil
+	return s.driver.GetTableColumnsSchema(table)
 }
 
 func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
-	database, err := s.GetDatabase()
-	if err != nil {
-		return nil, err
-	}
-
-	query := "SELECT `COLUMN_NAME` " +
-		"FROM `information_schema`.`COLUMNS` " +
-		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
-
-	var columns []string
-	err = s.DB.Raw(query, database, table).Pluck("COLUMN_NAME", &columns).Error
-	if err != nil {
-		return nil, err
-	}
-
-	return columns, nil
+	return s.driver.GetTableColumns(table)
 }
 
 func (s *SimpleDB) GetDatabase() (string, error) {
-	var row struct {
-		Database string
-	}
-
-	err := s.DB.Raw("SELECT DATABASE() AS 'database'").Scan(&row).Error
-	if err != nil {
-		return "", err
-	}
-
-	return row.Database, nil
+	return s.driver.GetDatabase()
 }
 
 func (s *SimpleDB) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
-	return s.DB.Table(table).CreateInBatches(data, batchSize).Error
+	return s.driver.BulkInsertFromSliceMap(table, data, batchSize)
 }
 
 func (s *SimpleDB) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
-	fieldsLen := len(fields)
-	sm := make([]map[string]any, 0, len(data))
-	for _, item := range data {
-		m := make(map[string]any, fieldsLen)
-		for k1, field := range fields {
-			m[field] = item[k1]
-		}
-
-		sm = append(sm, m)
-	}
-
-	return s.BulkInsertFromSliceMap(table, sm, batchSize)
+	return s.driver.BulkInsertFromSliceSlice(table, fields, data, batchSize)
 }
 
-func (s *SimpleDB) BulkUpdateFromSliceMapById(table string, id string, data []map[string]any) error {
-	for _, item := range data {
-		_id, ok := item[id]
-		if !ok {
-			return fmt.Errorf("table[%s] [%s] not found in map", table, id)
-		}
-
-		err := s.DB.Table(table).Where(fmt.Sprintf("%s = ?", id), _id).UpdateColumns(item).Error
-		if err != nil {
-			return fmt.Errorf("table[%s] %s[%v] error %v", table, id, _id, err)
-		}
-	}
-
-	return nil
+func (s *SimpleDB) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
+	return s.driver.BulkUpdateFromSliceMapByID(table, id, data)
 }
