@@ -3,8 +3,8 @@ package simpledb
 import (
 	"database/sql"
 
-	"github.com/auho/go-simple-db/v2/driver/driver"
-	"github.com/auho/go-simple-db/v2/schema"
+	"github.com/auho/go-simple-db/v3/driver/driver"
+	"github.com/auho/go-simple-db/v3/schema"
 	"gorm.io/gorm"
 )
 
@@ -29,6 +29,7 @@ func (s *SimpleDB) GormDB() *gorm.DB {
 	if gp, ok := s.driver.(driver.GormProvider); ok {
 		return gp.GormDB()
 	}
+
 	return nil
 }
 
@@ -38,6 +39,7 @@ func (s *SimpleDB) SqlDB() *sql.DB {
 	if p, ok := s.driver.(driver.SqlDBProvider); ok {
 		return p.SqlDB()
 	}
+
 	return nil
 }
 

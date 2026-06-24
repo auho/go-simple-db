@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/auho/go-simple-db/v2/driver/driver"
-	"github.com/auho/go-simple-db/v2/driver/mysql/internal"
-	"github.com/auho/go-simple-db/v2/driver/util"
-	"github.com/auho/go-simple-db/v2/schema"
+	"github.com/auho/go-simple-db/v3/driver/driver"
+	"github.com/auho/go-simple-db/v3/driver/mysql/internal"
+	"github.com/auho/go-simple-db/v3/driver/util"
+	"github.com/auho/go-simple-db/v3/schema"
 	gormmysql "gorm.io/driver/mysql"
 	"gorm.io/gorm"
 )

@@ -4,10 +4,10 @@ import (
 	"database/sql"
 	"fmt"
 
-	"github.com/auho/go-simple-db/v2/driver/clickhouse/internal"
-	"github.com/auho/go-simple-db/v2/driver/driver"
-	"github.com/auho/go-simple-db/v2/driver/util"
-	"github.com/auho/go-simple-db/v2/schema"
+	"github.com/auho/go-simple-db/v3/driver/clickhouse/internal"
+	"github.com/auho/go-simple-db/v3/driver/driver"
+	"github.com/auho/go-simple-db/v3/driver/util"
+	"github.com/auho/go-simple-db/v3/schema"
 	gormclickhouse "gorm.io/driver/clickhouse"
 	"gorm.io/gorm"
 )

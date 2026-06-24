@@ -1,6 +1,6 @@
 package driver
 
-import "github.com/auho/go-simple-db/v2/schema"
+import "github.com/auho/go-simple-db/v3/schema"
 
 const MySQL = "mysql"
 const ClickHouse = "clickhouse"
