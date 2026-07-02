@@ -2,6 +2,7 @@ package simpledb
 
 import (
 	"database/sql"
+	"fmt"
 
 	"github.com/auho/go-simple-db/v3/driver/driver"
 	"github.com/auho/go-simple-db/v3/schema"
@@ -21,6 +22,15 @@ func NewSimple(d driver.Driver) *SimpleDB {
 
 func (s *SimpleDB) Driver() driver.Driver {
 	return s.driver
+}
+
+func (s *SimpleDB) Clone() (*SimpleDB, error) {
+	d, err := s.driver.Clone()
+	if err != nil {
+		return nil, fmt.Errorf("clone: %w", err)
+	}
+
+	return NewSimple(d), nil
 }
 
 // GormDB returns the underlying *gorm.DB if the driver implements GormProvider.

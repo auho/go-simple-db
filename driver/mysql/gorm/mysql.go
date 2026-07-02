@@ -3,6 +3,7 @@ package gorm
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"github.com/auho/go-simple-db/v3/driver/driver"
 	"github.com/auho/go-simple-db/v3/driver/mysql/internal"
@@ -26,6 +27,8 @@ var _ driver.SqlDBProvider = (*MySQL)(nil)
 type MySQL struct {
 	db    *gorm.DB
 	sqlDb *sql.DB
+	dsn   string
+	opts  []gorm.Option
 	sql   internal.SQL
 }
 
@@ -40,28 +43,27 @@ func NewMySQL(dsn string, opts ...gorm.Option) (*MySQL, error) {
 		return nil, err
 	}
 
-	return &MySQL{db: db, sqlDb: sqlDb}, nil
+	return &MySQL{
+		db:    db,
+		sqlDb: sqlDb,
+		dsn:   dsn,
+		opts:  slices.Clone(opts),
+	}, nil
 }
 
-func (m *MySQL) DriverName() string {
-	return driver.MySQL
-}
+func (m *MySQL) DriverName() string { return driver.MySQL }
 
-func (m *MySQL) GormDB() *gorm.DB {
-	return m.db
-}
+func (m *MySQL) GormDB() *gorm.DB { return m.db }
 
-func (m *MySQL) SqlDB() *sql.DB {
-	return m.sqlDb
-}
+func (m *MySQL) SqlDB() *sql.DB { return m.sqlDb }
 
-func (m *MySQL) Ping() error {
-	return m.sqlDb.Ping()
-}
+func (m *MySQL) Ping() error { return m.sqlDb.Ping() }
 
 func (m *MySQL) Close() error {
 	return m.sqlDb.Close()
 }
+
+func (m *MySQL) Clone() (driver.Driver, error) { return NewMySQL(m.dsn, m.opts...) }
 
 func (m *MySQL) Truncate(table string) error {
 	return m.db.Exec(m.sql.Truncate(table)).Error

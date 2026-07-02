@@ -3,6 +3,7 @@ package gorm
 import (
 	"database/sql"
 	"fmt"
+	"slices"
 
 	"github.com/auho/go-simple-db/v3/driver/clickhouse/internal"
 	"github.com/auho/go-simple-db/v3/driver/driver"
@@ -26,6 +27,8 @@ var _ driver.SqlDBProvider = (*ClickHouse)(nil)
 type ClickHouse struct {
 	db    *gorm.DB
 	sqlDb *sql.DB
+	dsn   string
+	opts  []gorm.Option
 	sql   internal.SQL
 }
 
@@ -40,7 +43,12 @@ func NewClickHouse(dsn string, opts ...gorm.Option) (*ClickHouse, error) {
 		return nil, err
 	}
 
-	return &ClickHouse{db: db, sqlDb: sqlDb}, nil
+	return &ClickHouse{
+		db:    db,
+		sqlDb: sqlDb,
+		dsn:   dsn,
+		opts:  slices.Clone(opts),
+	}, nil
 }
 
 func (c *ClickHouse) DriverName() string {
@@ -62,6 +70,8 @@ func (c *ClickHouse) Ping() error {
 func (c *ClickHouse) Close() error {
 	return c.sqlDb.Close()
 }
+
+func (c *ClickHouse) Clone() (driver.Driver, error) { return NewClickHouse(c.dsn, c.opts...) }
 
 func (c *ClickHouse) Truncate(table string) error {
 	return c.db.Exec(c.sql.Truncate(table)).Error
