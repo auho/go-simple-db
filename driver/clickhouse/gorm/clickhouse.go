@@ -1,6 +1,7 @@
 package gorm
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"slices"
@@ -63,8 +64,8 @@ func (c *ClickHouse) SqlDB() *sql.DB {
 	return c.sqlDb
 }
 
-func (c *ClickHouse) Ping() error {
-	return c.sqlDb.Ping()
+func (c *ClickHouse) Ping(ctx context.Context) error {
+	return c.sqlDb.PingContext(ctx)
 }
 
 func (c *ClickHouse) Close() error {
@@ -73,25 +74,25 @@ func (c *ClickHouse) Close() error {
 
 func (c *ClickHouse) Clone() (driver.Driver, error) { return NewClickHouse(c.dsn, c.opts...) }
 
-func (c *ClickHouse) Truncate(table string) error {
-	return c.db.Exec(c.sql.Truncate(table)).Error
+func (c *ClickHouse) Truncate(ctx context.Context, table string) error {
+	return c.db.WithContext(ctx).Exec(c.sql.Truncate(table)).Error
 }
 
-func (c *ClickHouse) Drop(table string) error {
-	return c.db.Exec(c.sql.Drop(table)).Error
+func (c *ClickHouse) Drop(ctx context.Context, table string) error {
+	return c.db.WithContext(ctx).Exec(c.sql.Drop(table)).Error
 }
 
-func (c *ClickHouse) CopyStructure(src string, dst string) error {
-	return c.db.Exec(c.sql.CopyStructure(src, dst)).Error
+func (c *ClickHouse) CopyStructure(ctx context.Context, src string, dst string) error {
+	return c.db.WithContext(ctx).Exec(c.sql.CopyStructure(src, dst)).Error
 }
 
-func (c *ClickHouse) CopyData(src string, dst string) error {
-	return c.db.Exec(c.sql.CopyData(src, dst)).Error
+func (c *ClickHouse) CopyData(ctx context.Context, src string, dst string) error {
+	return c.db.WithContext(ctx).Exec(c.sql.CopyData(src, dst)).Error
 }
 
-func (c *ClickHouse) RowCount(table string) (int, error) {
+func (c *ClickHouse) RowCount(ctx context.Context, table string) (int, error) {
 	var count int
-	err := c.db.Raw(c.sql.RowCount(table)).Scan(&count).Error
+	err := c.db.WithContext(ctx).Raw(c.sql.RowCount(table)).Scan(&count).Error
 	if err != nil {
 		return 0, err
 	}
@@ -99,14 +100,14 @@ func (c *ClickHouse) RowCount(table string) (int, error) {
 	return count, nil
 }
 
-func (c *ClickHouse) GetTableColumnsSchema(table string) ([]schema.Column, error) {
-	database, err := c.GetDatabase()
+func (c *ClickHouse) GetTableColumnsSchema(ctx context.Context, table string) ([]schema.Column, error) {
+	database, err := c.GetDatabase(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var columns []schema.Column
-	err = c.db.Raw(c.sql.GetTableColumnsSchema(), database, table).Scan(&columns).Error
+	err = c.db.WithContext(ctx).Raw(c.sql.GetTableColumnsSchema(), database, table).Scan(&columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -114,14 +115,14 @@ func (c *ClickHouse) GetTableColumnsSchema(table string) ([]schema.Column, error
 	return columns, nil
 }
 
-func (c *ClickHouse) GetTableColumns(table string) ([]string, error) {
-	database, err := c.GetDatabase()
+func (c *ClickHouse) GetTableColumns(ctx context.Context, table string) ([]string, error) {
+	database, err := c.GetDatabase(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	var columns []string
-	err = c.db.Raw(c.sql.GetTableColumns(), database, table).Pluck("name", &columns).Error
+	err = c.db.WithContext(ctx).Raw(c.sql.GetTableColumns(), database, table).Pluck("name", &columns).Error
 	if err != nil {
 		return nil, err
 	}
@@ -129,9 +130,9 @@ func (c *ClickHouse) GetTableColumns(table string) ([]string, error) {
 	return columns, nil
 }
 
-func (c *ClickHouse) GetDatabase() (string, error) {
+func (c *ClickHouse) GetDatabase(ctx context.Context) (string, error) {
 	var database string
-	err := c.db.Raw(c.sql.GetDatabase()).Scan(&database).Error
+	err := c.db.WithContext(ctx).Raw(c.sql.GetDatabase()).Scan(&database).Error
 	if err != nil {
 		return "", err
 	}
@@ -139,22 +140,22 @@ func (c *ClickHouse) GetDatabase() (string, error) {
 	return database, nil
 }
 
-func (c *ClickHouse) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
-	return c.db.Table(table).CreateInBatches(data, batchSize).Error
+func (c *ClickHouse) BulkInsertFromSliceMap(ctx context.Context, table string, data []map[string]any, batchSize int) error {
+	return c.db.WithContext(ctx).Table(table).CreateInBatches(data, batchSize).Error
 }
 
-func (c *ClickHouse) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
-	return c.BulkInsertFromSliceMap(table, util.SliceSliceToSliceMap(fields, data), batchSize)
+func (c *ClickHouse) BulkInsertFromSliceSlice(ctx context.Context, table string, fields []string, data [][]any, batchSize int) error {
+	return c.BulkInsertFromSliceMap(ctx, table, util.SliceSliceToSliceMap(fields, data), batchSize)
 }
 
-func (c *ClickHouse) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
+func (c *ClickHouse) BulkUpdateFromSliceMapByID(ctx context.Context, table string, id string, data []map[string]any) error {
 	for _, item := range data {
 		_id, ok := item[id]
 		if !ok {
 			return fmt.Errorf("table[%s] [%s] not found in map", table, id)
 		}
 
-		err := c.db.Table(table).Where(fmt.Sprintf("%s = ?", id), _id).UpdateColumns(item).Error
+		err := c.db.WithContext(ctx).Table(table).Where(fmt.Sprintf("%s = ?", id), _id).UpdateColumns(item).Error
 		if err != nil {
 			return fmt.Errorf("table[%s] %s[%v] error %v", table, id, _id, err)
 		}

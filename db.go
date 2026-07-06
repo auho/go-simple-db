@@ -1,6 +1,7 @@
 package simpledb
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 
@@ -53,16 +54,16 @@ func (s *SimpleDB) SqlDB() *sql.DB {
 	return nil
 }
 
-func (s *SimpleDB) Ping() error {
-	return s.driver.Ping()
+func (s *SimpleDB) Ping(ctx context.Context) error {
+	return s.driver.Ping(ctx)
 }
 
 func (s *SimpleDB) Close() error {
 	return s.driver.Close()
 }
 
-func (s *SimpleDB) Name() string {
-	database, _ := s.driver.GetDatabase()
+func (s *SimpleDB) Name(ctx context.Context) string {
+	database, _ := s.driver.GetDatabase(ctx)
 	return database
 }
 
@@ -70,55 +71,55 @@ func (s *SimpleDB) DriverName() string {
 	return s.driver.DriverName()
 }
 
-func (s *SimpleDB) Truncate(table string) error {
-	return s.driver.Truncate(table)
+func (s *SimpleDB) Truncate(ctx context.Context, table string) error {
+	return s.driver.Truncate(ctx, table)
 }
 
-func (s *SimpleDB) DropAndCopyStructure(src string, dst string) error {
-	err := s.Drop(dst)
+func (s *SimpleDB) DropAndCopyStructure(ctx context.Context, src string, dst string) error {
+	err := s.Drop(ctx, dst)
 	if err != nil {
 		return err
 	}
 
-	return s.CopyStructure(src, dst)
+	return s.CopyStructure(ctx, src, dst)
 }
 
-func (s *SimpleDB) Drop(table string) error {
-	return s.driver.Drop(table)
+func (s *SimpleDB) Drop(ctx context.Context, table string) error {
+	return s.driver.Drop(ctx, table)
 }
 
-func (s *SimpleDB) CopyStructure(src string, dst string) error {
-	return s.driver.CopyStructure(src, dst)
+func (s *SimpleDB) CopyStructure(ctx context.Context, src string, dst string) error {
+	return s.driver.CopyStructure(ctx, src, dst)
 }
 
-func (s *SimpleDB) CopyData(src string, dst string) error {
-	return s.driver.CopyData(src, dst)
+func (s *SimpleDB) CopyData(ctx context.Context, src string, dst string) error {
+	return s.driver.CopyData(ctx, src, dst)
 }
 
-func (s *SimpleDB) RowCount(table string) (int, error) {
-	return s.driver.RowCount(table)
+func (s *SimpleDB) RowCount(ctx context.Context, table string) (int, error) {
+	return s.driver.RowCount(ctx, table)
 }
 
-func (s *SimpleDB) GetTableColumnsSchema(table string) ([]schema.Column, error) {
-	return s.driver.GetTableColumnsSchema(table)
+func (s *SimpleDB) GetTableColumnsSchema(ctx context.Context, table string) ([]schema.Column, error) {
+	return s.driver.GetTableColumnsSchema(ctx, table)
 }
 
-func (s *SimpleDB) GetTableColumns(table string) ([]string, error) {
-	return s.driver.GetTableColumns(table)
+func (s *SimpleDB) GetTableColumns(ctx context.Context, table string) ([]string, error) {
+	return s.driver.GetTableColumns(ctx, table)
 }
 
-func (s *SimpleDB) GetDatabase() (string, error) {
-	return s.driver.GetDatabase()
+func (s *SimpleDB) GetDatabase(ctx context.Context) (string, error) {
+	return s.driver.GetDatabase(ctx)
 }
 
-func (s *SimpleDB) BulkInsertFromSliceMap(table string, data []map[string]any, batchSize int) error {
-	return s.driver.BulkInsertFromSliceMap(table, data, batchSize)
+func (s *SimpleDB) BulkInsertFromSliceMap(ctx context.Context, table string, data []map[string]any, batchSize int) error {
+	return s.driver.BulkInsertFromSliceMap(ctx, table, data, batchSize)
 }
 
-func (s *SimpleDB) BulkInsertFromSliceSlice(table string, fields []string, data [][]any, batchSize int) error {
-	return s.driver.BulkInsertFromSliceSlice(table, fields, data, batchSize)
+func (s *SimpleDB) BulkInsertFromSliceSlice(ctx context.Context, table string, fields []string, data [][]any, batchSize int) error {
+	return s.driver.BulkInsertFromSliceSlice(ctx, table, fields, data, batchSize)
 }
 
-func (s *SimpleDB) BulkUpdateFromSliceMapByID(table string, id string, data []map[string]any) error {
-	return s.driver.BulkUpdateFromSliceMapByID(table, id, data)
+func (s *SimpleDB) BulkUpdateFromSliceMapByID(ctx context.Context, table string, id string, data []map[string]any) error {
+	return s.driver.BulkUpdateFromSliceMapByID(ctx, table, id, data)
 }
