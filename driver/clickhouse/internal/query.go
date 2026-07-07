@@ -1,13 +1,17 @@
 package internal
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // SQL generates ClickHouse-specific SQL statements.
 type SQL struct{}
 
 // QuoteIdentifier wraps a ClickHouse identifier with backticks.
+// Internal backticks are escaped by doubling them.
 func (s SQL) QuoteIdentifier(name string) string {
-	return fmt.Sprintf("`%s`", name)
+	return "`" + strings.ReplaceAll(name, "`", "``") + "`"
 }
 
 func (s SQL) Truncate(table string) string {
@@ -19,7 +23,7 @@ func (s SQL) Drop(table string) string {
 }
 
 func (s SQL) CopyStructure(src, dst string) string {
-	return fmt.Sprintf("CREATE TABLE %s AS %s WITH NO DATA", s.QuoteIdentifier(dst), s.QuoteIdentifier(src))
+	return fmt.Sprintf("CREATE TABLE %s AS %s", s.QuoteIdentifier(dst), s.QuoteIdentifier(src))
 }
 
 func (s SQL) CopyData(src, dst string) string {

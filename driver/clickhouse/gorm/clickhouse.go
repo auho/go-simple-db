@@ -145,19 +145,23 @@ func (c *ClickHouse) BulkInsertFromSliceMap(ctx context.Context, table string, d
 }
 
 func (c *ClickHouse) BulkInsertFromSliceSlice(ctx context.Context, table string, fields []string, data [][]any, batchSize int) error {
-	return c.BulkInsertFromSliceMap(ctx, table, util.SliceSliceToSliceMap(fields, data), batchSize)
+	dataMap, err := util.SliceSliceToSliceMap(fields, data)
+	if err != nil {
+		return err
+	}
+	return c.BulkInsertFromSliceMap(ctx, table, dataMap, batchSize)
 }
 
 func (c *ClickHouse) BulkUpdateFromSliceMapByID(ctx context.Context, table string, id string, data []map[string]any) error {
 	for _, item := range data {
 		_id, ok := item[id]
 		if !ok {
-			return fmt.Errorf("table[%s] [%s] not found in map", table, id)
+			return fmt.Errorf("item[%s] not found in map for table[%s]", id, table)
 		}
 
-		err := c.db.WithContext(ctx).Table(table).Where(fmt.Sprintf("%s = ?", id), _id).UpdateColumns(item).Error
+		err := c.db.WithContext(ctx).Table(table).Where(fmt.Sprintf("%s = ?", c.sql.QuoteIdentifier(id)), _id).UpdateColumns(item).Error
 		if err != nil {
-			return fmt.Errorf("table[%s] %s[%v] error %v", table, id, _id, err)
+			return fmt.Errorf("UpdateColumns table[%s] %s[%v]: %w", table, id, _id, err)
 		}
 	}
 
