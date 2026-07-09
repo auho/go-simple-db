@@ -20,13 +20,13 @@ func RecreateTable(db *gorm.DB, table string, ddl string) error {
 	return db.Exec(ddl).Error
 }
 
-// LoadDSN loads .env.test and returns the MYSQL_DSN value (without database name).
+// LoadDSN loads .env.test and returns the TEST_MYSQL_DSN value (without database name).
 // It returns an error if .env.test exists but fails to parse.
 func LoadDSN() (string, error) {
 	if err := testutil.LoadEnvFile(); err != nil {
 		return "", fmt.Errorf("load env file: %w", err)
 	}
-	return os.Getenv("MYSQL_DSN"), nil
+	return os.Getenv("TEST_MYSQL_DSN"), nil
 }
 
 // EnsureDatabase connects with the bare dsn (no database selected) and creates
@@ -55,14 +55,14 @@ func DSNWithDatabase(dsn string) (string, error) {
 	return cfg.FormatDSN(), nil
 }
 
-// SetupDSN loads MYSQL_DSN, ensures the test database exists, and returns a dsn pointing at it.
+// SetupDSN loads TEST_MYSQL_DSN, ensures the test database exists, and returns a dsn pointing at it.
 func SetupDSN() (string, error) {
 	dsn, err := LoadDSN()
 	if err != nil {
 		return "", fmt.Errorf("load dsn: %w", err)
 	}
 	if dsn == "" {
-		return "", errors.New("MYSQL_DSN not set; create .env.test with MYSQL_DSN")
+		return "", errors.New("TEST_MYSQL_DSN not set; create .env.test with TEST_MYSQL_DSN")
 	}
 	if err := EnsureDatabase(dsn); err != nil {
 		return "", fmt.Errorf("ensure database: %w", err)
