@@ -1,13 +1,17 @@
 package internal
 
-import "fmt"
+import (
+	"fmt"
+	"strings"
+)
 
 // SQL generates MySQL-specific SQL statements.
 type SQL struct{}
 
 // QuoteIdentifier wraps a MySQL identifier with backticks.
+// Internal backticks are escaped by doubling them.
 func (s SQL) QuoteIdentifier(name string) string {
-	return fmt.Sprintf("`%s`", name)
+	return "`" + strings.ReplaceAll(name, "`", "``") + "`"
 }
 
 func (s SQL) Truncate(table string) string {

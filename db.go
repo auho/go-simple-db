@@ -62,9 +62,8 @@ func (s *SimpleDB) Close() error {
 	return s.driver.Close()
 }
 
-func (s *SimpleDB) Name(ctx context.Context) string {
-	database, _ := s.driver.GetDatabase(ctx)
-	return database
+func (s *SimpleDB) Name(ctx context.Context) (string, error) {
+	return s.driver.GetDatabase(ctx)
 }
 
 func (s *SimpleDB) DriverName() string {
