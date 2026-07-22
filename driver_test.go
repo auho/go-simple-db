@@ -9,26 +9,31 @@ import (
 )
 
 func TestNewMySQLGorm(t *testing.T) {
-	fullDSN, err := mysqlgormtest.SetupDSN()
+	fullDSN, err := mysqlgormtest.Setup()
 	if err != nil {
 		t.Fatalf("setup dsn: %v", err)
 	}
+
 	sdb, gdb, err := simpledb.NewMySQLGorm(fullDSN)
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer sdb.Close()
+
+	defer func() { _ = sdb.Close() }()
 
 	if sdb == nil {
 		t.Fatal("SimpleDB = nil")
 	}
+
 	if gdb == nil {
 		t.Fatal("gorm.DB = nil")
 	}
+
 	if got := sdb.DriverName(); got != "mysql" {
 		t.Fatalf("DriverName = %q, want %q", got, "mysql")
 	}
-	if err := sdb.Ping(context.Background()); err != nil {
+
+	if err = sdb.Ping(context.Background()); err != nil {
 		t.Fatal(err)
 	}
 }

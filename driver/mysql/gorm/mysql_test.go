@@ -31,19 +31,22 @@ func recreateTable(t *testing.T, m *mysqlgorm.MySQL, table string) {
 var testDB *mysqlgorm.MySQL
 
 func TestMain(m *testing.M) {
-	fullDSN, err := mysqlgormtest.SetupDSN()
+	fullDSN, err := mysqlgormtest.Setup()
 	if err != nil {
 		log.Fatalf("setup dsn: %v", err)
 	}
+
 	db, err := mysqlgorm.NewMySQL(fullDSN)
 	if err != nil {
 		log.Fatalf("new mysql: %v", err)
 	}
+
 	testDB = db
 	code := m.Run()
-	if err := testDB.Close(); err != nil {
+	if err = testDB.Close(); err != nil {
 		log.Printf("close: %v", err)
 	}
+
 	os.Exit(code)
 }
 
