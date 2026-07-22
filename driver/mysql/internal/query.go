@@ -41,11 +41,13 @@ func (s SQL) GetDatabase() string {
 func (s SQL) GetTableColumnsSchema() string {
 	return "SELECT `COLUMN_NAME` AS `name`, `DATA_TYPE` AS `field_type` " +
 		"FROM `information_schema`.`COLUMNS` " +
-		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ? " +
+		"ORDER BY `ORDINAL_POSITION`"
 }
 
 func (s SQL) GetTableColumns() string {
 	return "SELECT `COLUMN_NAME` " +
 		"FROM `information_schema`.`COLUMNS` " +
-		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ?"
+		"WHERE `TABLE_SCHEMA` = ? AND `TABLE_NAME` = ? " +
+		"ORDER BY `ORDINAL_POSITION`"
 }
